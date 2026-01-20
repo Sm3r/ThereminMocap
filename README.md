@@ -1,23 +1,16 @@
-Simply a mocap theremin.
+# ThereminMocap
 
-Google Drive link to data/takes folder:
-https://drive.google.com/drive/folders/1FwwdydfsW5zwJmulHlqtQbMZtq1t1s7j?usp=share_link
+Motion capture theremin system.
 
+## Data
 
-### Pipeline:
-1. multirecorder.py - Records mocap, zed and audio data
-2. audio_reader.py - Creates df out of audio data
-3. preprocess_mocap.py - Creates df out of mocap data and combines with audio df
-4. network.py - for training and testing the neural network
+Google Drive: https://drive.google.com/drive/folders/1FwwdydfsW5zwJmulHlqtQbMZtq1t1s7j?usp=share_link
 
-UPDATED:
+## Pipeline
 
-natnet/multirecorder.py - for recording mocap, zed and audio data
-
-audio_reader.py - for reading audio data and creating dataframe
-
-TODO:
-
-preprocess_mocap.py
-
-network.py
+1. `multi_recorder.py` - Record mocap, ZED, and audio data
+2. `prepare_audio.py` - Process audio features to NPY
+3. `prepare_mocap.py` - Process mocap markers to NPY
+4. `data_loader.py` - Load data for training
+5. `main.py` - Train neural network
+6. `evaluate.py` - Test trained model
