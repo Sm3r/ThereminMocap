@@ -3,17 +3,12 @@ import essentia
 import numpy as np
 import pandas as pd
 import librosa
+import config
 
-
-
-'''load audio file
- channel[0] = pitch antenna
- channel[1] = volume antenna
- channel[2] = audio (ignora)
-'''
+name = config.recording_name
 
 # Load the audio file using librosa
-audio_path = "data/takes/TestZED.wav"
+audio_path = f"data/takes/{name}.wav"
 audio, sample_rate = librosa.load(audio_path, sr=44100, mono=False)
 
 # Split into 3 separate channels
@@ -102,4 +97,4 @@ df = pd.DataFrame({
 print(df.head())
 
 # Save DataFrame to CSV
-df.to_csv("data/dataframes/TestZED.csv", index=False)
+df.to_csv(f"data/dataframes/{name}.csv", index=False)
