@@ -32,12 +32,58 @@ hop_size = 441
 # Extract pitches from both channels
 pitch_extractor = es.PitchYin(frameSize=frame_size)
 pitches = []
+confidences = []
 for channel in channels:
     channel_pitches = []
+    channel_confidences = []
     for frame in es.FrameGenerator(channel, frameSize=frame_size, hopSize=hop_size, startFromZero=True):
-        pitch, _ = pitch_extractor(frame)
+        pitch, confidence = pitch_extractor(frame)
         channel_pitches.append(pitch)
+        channel_confidences.append(confidence)
     pitches.append(np.array(channel_pitches))
+    confidences.append(np.array(channel_confidences))
+
+theremin_pitch = pitches[0]
+theremin_volume = pitches[1]
+
+# Filter out unreliable pitch estimates and replace with average between first valid samples before and after
+min_freq = 20.0
+confidence_threshold = 0.5
+
+for i in range(len(pitches)):
+    pitch_data = pitches[i].copy()
+    conf_data = confidences[i]
+    
+    # Create mask for valid pitches
+    valid_mask = (pitch_data > min_freq) & (conf_data > confidence_threshold)
+    
+    if valid_mask.sum() > 0:
+        # Interpolate invalid values
+        for idx in range(len(pitch_data)):
+            if not valid_mask[idx]:
+                # Find nearest valid sample before
+                before_val = None
+                for j in range(idx - 1, -1, -1):
+                    if valid_mask[j]:
+                        before_val = pitch_data[j]
+                        break
+                
+                # Find nearest valid sample after
+                after_val = None
+                for j in range(idx + 1, len(pitch_data)):
+                    if valid_mask[j]:
+                        after_val = pitch_data[j]
+                        break
+                
+                # Replace with average of before and after
+                if before_val is not None and after_val is not None:
+                    pitch_data[idx] = (before_val + after_val) / 2.0
+                elif before_val is not None:
+                    pitch_data[idx] = before_val
+                elif after_val is not None:
+                    pitch_data[idx] = after_val
+        
+        pitches[i] = pitch_data
 
 theremin_pitch = pitches[0]
 theremin_volume = pitches[1]
