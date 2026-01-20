@@ -1,6 +1,7 @@
-.DS_Store
-
 # Large data files
 *.svo2
 *.tak
 *.wav
+
+.config.json
+.DS_Store
