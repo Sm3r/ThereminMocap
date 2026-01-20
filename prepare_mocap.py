@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from mocap_parser import Take
 from plotter import plot_3d_animation
 from config import config
@@ -78,7 +79,8 @@ all_markers = np.array(all_markers)
 
 all_data = np.concatenate((pitch_markers, volume_markers, all_markers), axis=1)
 
-np.save(f"out/{take_name}.npy", all_data)
+os.makedirs("out/train", exist_ok=True)
+np.save(f"out/train/{take_name}.npy", all_data)
 
 # plot_3d_animation(pitch_marker_1, pitch_marker_2, pitch_marker_3, volume_marker_1, volume_marker_2, volume_marker_3, all_markers)
 
