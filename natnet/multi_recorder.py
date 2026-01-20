@@ -5,6 +5,8 @@ import pyaudio
 import pyzed.sl as sl
 from NatNetClient import NatNetClient
 import array
+import sys
+from config import config
 
 # ==========================
 # CONFIG
@@ -23,10 +25,18 @@ sample_format = pyaudio.paInt16
 channels = 8
 fs = 44100
 
-name = "TestZED"
-audio_filename = "data/takes/" + name + ".wav"
+
+config.set_recording_name("TestZED")
+
+# Prevent overwriting
+if config.check_files_exist():
+    print("[ERROR] Cannot start recording - files would be overwritten.")
+    sys.exit(1)
+
+name = config.recording_name
+audio_filename = f"data/takes/{name}.wav"
 tak_filename = name
-output_svo_file = "data/takes/" + name + ".svo"
+output_svo_file = f"data/takes/{name}.svo"
 
 stop_event = threading.Event()
 
