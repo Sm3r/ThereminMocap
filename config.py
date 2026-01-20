@@ -9,17 +9,17 @@ class Config:
         if os.path.exists(self.config_file):
             with open(self.config_file, 'r') as f:
                 data = json.load(f)
-                self.recording_name = data.get('recording_name', 'take1')
+                self.take_name = data.get('take_name', 'take1')
         else:
-            self.recording_name = 'take1'
+            self.take_name = 'take1'
     
-    def set_recording_name(self, name):
-        self.recording_name = name
+    def set_take_name(self, name):
+        self.take_name = name
         with open(self.config_file, 'w') as f:
-            json.dump({'recording_name': name}, f)
+            json.dump({'take_name': name}, f)
     
     def check_files_exist(self):
-        pattern = f"data/takes/{self.recording_name}.*"
+        pattern = f"data/takes/{self.take_name}.*"
         existing = glob.glob(pattern)
         
         if existing:
