@@ -1,7 +1,7 @@
-import os
 import numpy as np
-from csv_reader import Take
+from mocap_parser import Take
 from plotter import plot_3d_animation
+from config import config
 
 def fill_none_with_previous(lst, default=[-10000, -10000, -10000]):
     filled = []
@@ -14,11 +14,10 @@ def fill_none_with_previous(lst, default=[-10000, -10000, -10000]):
             filled.append(filled[-1])
     return filled
 
-take_name = "ThereminPitch2"
-csv_path = os.path.join("data_mocap", "csv", f"{take_name}.csv")
 
 take = Take(frame_rate=441)
-take.readCSV(csv_path)
+take_name = config.take_name
+take.readCSV(f"data/dataframes/MOCAP_{take_name}.csv")
 
 raw_markers = take.markers
 

@@ -3,12 +3,12 @@ import essentia
 import numpy as np
 import pandas as pd
 import librosa
-import config
+from config import config
 
-name = config.recording_name
+take_name = config.take_name
 
 # Load the audio file using librosa
-audio_path = f"data/takes/{name}.wav"
+audio_path = f"data/takes/{take_name}.wav"
 audio, sample_rate = librosa.load(audio_path, sr=44100, mono=False)
 
 # Split into 3 separate channels
@@ -97,4 +97,7 @@ df = pd.DataFrame({
 print(df.head())
 
 # Save DataFrame to CSV
-df.to_csv(f"data/dataframes/CV_{name}.csv", index=False)
+df.to_csv(f"data/dataframes/CV_{take_name}.csv", index=False)
+
+out_audio_feats = np.array([theremin_pitch, theremin_volume]).T
+np.save(f"out/train/{take_name}_audio.npy", out_audio_feats)

@@ -26,14 +26,14 @@ channels = 8
 fs = 44100
 
 
-config.set_recording_name("TestZED")
+config.set_take_name("TestZED")
 
 # Prevent overwriting
 if config.check_files_exist():
     print("[ERROR] Cannot start recording - files would be overwritten.")
     sys.exit(1)
 
-name = config.recording_name
+name = config.take_name
 audio_filename = f"data/takes/{name}.wav"
 tak_filename = name
 output_svo_file = f"data/takes/{name}.svo"

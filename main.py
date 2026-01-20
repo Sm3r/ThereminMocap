@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import DataLoader
-from dataloader import ThereminDataset
+from data_loader import ThereminDataset
 from network import *
 from einops import rearrange, repeat
 from tqdm import tqdm
