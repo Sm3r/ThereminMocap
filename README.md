@@ -7,6 +7,11 @@ https://drive.google.com/drive/folders/1FwwdydfsW5zwJmulHlqtQbMZtq1t1s7j?usp=sha
 UPDATED:
 
 natnet/multirecorder.py - for recording mocap, zed and audio data
+
 audio_reader.py - for reading audio data and creating dataframe
 
 TODO:
+
+preprocess_mocap.py
+
+network.py
