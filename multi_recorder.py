@@ -6,6 +6,7 @@ import pyzed.sl as sl
 from natnet.NatNetClient import NatNetClient
 import array
 import sys
+import os
 from config import config
 
 # ==========================
@@ -34,6 +35,7 @@ if config.check_files_exist():
     sys.exit(1)
 
 name = config.take_name
+os.makedirs("data/takes", exist_ok=True)
 audio_filename = f"data/takes/{name}.wav"
 tak_filename = name
 output_svo_file = f"data/takes/{name}.svo"
