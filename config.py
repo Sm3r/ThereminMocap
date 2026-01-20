@@ -4,14 +4,15 @@ import os
 
 class Config: 
     config_file = ".config.json"
+    default = "take1"
     
     def __init__(self):
         if os.path.exists(self.config_file):
             with open(self.config_file, 'r') as f:
                 data = json.load(f)
-                self.take_name = data.get('take_name', 'take1')
+                self.take_name = data.get('take_name', self.default)
         else:
-            self.take_name = 'take1'
+            self.take_name = self.default
     
     def set_take_name(self, name):
         self.take_name = name
