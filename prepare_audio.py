@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import librosa
 import os
-from config import config
+from utils.config import config
 
 take_name = config.take_name
 

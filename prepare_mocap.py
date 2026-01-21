@@ -1,8 +1,9 @@
 import numpy as np
 import os
-from mocap_parser import Take
+from utils.mocap_parser import Take
+from utils.tak_to_csv import convert_tak_to_csv
 from plotter import plot_3d_animation
-from config import config
+from utils.config import config
 
 def fill_none_with_previous(lst, default=[-10000, -10000, -10000]):
     filled = []
@@ -15,6 +16,8 @@ def fill_none_with_previous(lst, default=[-10000, -10000, -10000]):
             filled.append(filled[-1])
     return filled
 
+
+convert_tak_to_csv()
 
 take = Take(frame_rate=441)
 take_name = config.take_name
