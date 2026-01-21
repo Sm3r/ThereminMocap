@@ -31,12 +31,12 @@ for marker in raw_markers.values():
         if pos is not None:
             pos[1], pos[2] = -pos[2], pos[1]
 
-pitch_marker_1 = raw_markers['ThereminPitch:Marker 001'].positions
-pitch_marker_2 = raw_markers['ThereminPitch:Marker 002'].positions
-pitch_marker_3 = raw_markers['ThereminPitch:Marker 003'].positions
-volume_marker_1 = raw_markers['ThereminVolume:Marker 001'].positions
-volume_marker_2 = raw_markers['ThereminVolume:Marker 002'].positions
-volume_marker_3 = raw_markers['ThereminVolume:Marker 003'].positions
+pitch_marker_1 = raw_markers['pitch:Marker 001'].positions
+pitch_marker_2 = raw_markers['pitch:Marker 002'].positions
+pitch_marker_3 = raw_markers['pitch:Marker 003'].positions
+volume_marker_1 = raw_markers['volume:Marker 001'].positions
+volume_marker_2 = raw_markers['volume:Marker 002'].positions
+volume_marker_3 = raw_markers['volume:Marker 003'].positions
 
 pitch_marker_1 = fill_none_with_previous(pitch_marker_1)
 pitch_marker_2 = fill_none_with_previous(pitch_marker_2)
@@ -45,12 +45,12 @@ volume_marker_1 = fill_none_with_previous(volume_marker_1)
 volume_marker_2 = fill_none_with_previous(volume_marker_2)
 volume_marker_3 = fill_none_with_previous(volume_marker_3)
 
-del raw_markers['ThereminPitch:Marker 001']
-del raw_markers['ThereminPitch:Marker 002']
-del raw_markers['ThereminPitch:Marker 003']
-del raw_markers['ThereminVolume:Marker 001']
-del raw_markers['ThereminVolume:Marker 002']
-del raw_markers['ThereminVolume:Marker 003']
+del raw_markers['pitch:Marker 001']
+del raw_markers['pitch:Marker 002']
+del raw_markers['pitch:Marker 003']
+del raw_markers['volume:Marker 001']
+del raw_markers['volume:Marker 002']
+del raw_markers['volume:Marker 003']
 
 pitch_marker_1 = np.array(pitch_marker_1)
 pitch_marker_2 = np.array(pitch_marker_2)

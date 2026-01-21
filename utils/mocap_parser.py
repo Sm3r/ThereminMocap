@@ -83,7 +83,7 @@ class Take:
         line1 = next(stream)
         assert line1[0] == 'Format Version', f"Unrecognized header cell: {line1[0]}"
         format_version = line1[1]
-        assert format_version in ['1.24', '1.21', '1.2'], f"Unsupported format version: {format_version}"
+        assert format_version in ['1.25', '1.21', '1.2'], f"Unsupported format version: {format_version}"
 
         self._raw_info = {line1[i]: line1[i + 1] for i in range(0, len(line1) - 1, 2)}
 
@@ -97,6 +97,7 @@ class Take:
         self._raw_types = next(stream)[2:]
         self._raw_labels = next(stream)[2:]
         line5 = next(stream)
+        next(stream)  # Skip "Parent" row
         self._raw_fields = next(stream)[2:]
         self._raw_axes = next(stream)[2:]
 
