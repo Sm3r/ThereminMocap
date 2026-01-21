@@ -7,6 +7,7 @@ from natnet.NatNetClient import NatNetClient
 import array
 import sys
 import os
+import shutil
 from config import config
 
 # ==========================
@@ -203,4 +204,7 @@ except KeyboardInterrupt:
 
 for t in threads:
     t.join()
+    
+time.sleep(1)
+shutil.move(os.path.join(os.path.expanduser("~"), "Documents", "OptiTrack", "Default", f"{tak_filename}.tak"), f"data/takes/{tak_filename}.tak")
 print("All recordings stopped cleanly.")
