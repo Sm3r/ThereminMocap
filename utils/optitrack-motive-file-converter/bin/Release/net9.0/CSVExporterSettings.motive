@@ -8,11 +8,11 @@
   <WriteHeader>true</WriteHeader>
   <RotationType>QuaternionFormat</RotationType>
   <WriteQualityStats>true</WriteQualityStats>
-  <WriteBoneMarkers>false</WriteBoneMarkers>
+  <WriteBoneMarkers>true</WriteBoneMarkers>
   <WriteBones>true</WriteBones>
-  <WriteRigidBodyMarkers>false</WriteRigidBodyMarkers>
+  <WriteRigidBodyMarkers>true</WriteRigidBodyMarkers>
   <WriteRigidBodies>true</WriteRigidBodies>
-  <WriteMarkers>false</WriteMarkers>
+  <WriteMarkers>true</WriteMarkers>
   <UseWorldSapceCoordinates>true</UseWorldSapceCoordinates>
   <Units>Units_Millimeters</Units>
 </CSVExporter>
