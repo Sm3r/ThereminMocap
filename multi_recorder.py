@@ -3,12 +3,12 @@ import time
 import wave
 import pyaudio
 import pyzed.sl as sl
-from natnet.NatNetClient import NatNetClient
+from utils.natnet.NatNetClient import NatNetClient
 import array
 import sys
 import os
 import shutil
-from config import config
+from utils.config import config
 
 # ==========================
 # CONFIG
@@ -27,8 +27,6 @@ sample_format = pyaudio.paInt16
 channels = 8
 fs = 44100
 
-
-config.set_take_name("TestZED")
 
 # Prevent overwriting
 if config.check_files_exist():
