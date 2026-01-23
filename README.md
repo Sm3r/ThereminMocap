@@ -6,6 +6,8 @@ Motion capture theremin system.
 
 Google Drive: https://drive.google.com/drive/folders/1FwwdydfsW5zwJmulHlqtQbMZtq1t1s7j?usp=share_link
 
+Jupyter Notebook: https://colab.research.google.com/drive/1qxv-aSJIAnVRj09gXxxJ_weP0UZtmfzq?usp=sharing
+
 ## Pipeline
 
 1. `multi_recorder.py` - Record mocap, ZED, and audio data
