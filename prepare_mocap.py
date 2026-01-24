@@ -2,6 +2,7 @@ import numpy as np
 import os
 from utils.mocap_parser import Take
 from utils.tak_to_csv import convert_tak_to_csv
+from utils.cleaning import clean_mocap_csv
 from plotter import plot_3d_animation
 from utils.config import config
 
@@ -17,11 +18,12 @@ def fill_none_with_previous(lst, default=[-10000, -10000, -10000]):
     return filled
 
 
-convert_tak_to_csv()
+#convert_tak_to_csv()
+clean_mocap_csv()
 
 take = Take(frame_rate=441)
 take_name = config.take_name
-take.readCSV(f"data/dataframes/MOCAP_{take_name}.csv")
+take.readCSV(f"data/dataframes/MOCAP_{take_name}_CLEAN.csv")
 
 raw_markers = take.markers
 
