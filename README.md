@@ -80,7 +80,9 @@ ThereminMocap/
     - Open Motive, load your take, and trim it to remove noisy frames at start and end.
     - Create one rigid body per antenna naming it as the config name you choose.
     - Create one markerset per hand naming it as the config name you choose.
+    - Train the markerset
     - Go in to the labelling section and manually relabel the lost markers with the quick label tool.
+    - Solve the rigid bodies.
     - Export the take as a .tak file in the takes folder.
 
 5. **Process mocap data**
@@ -91,7 +93,7 @@ ThereminMocap/
     This script will:
     - Convert the tak file to CSV using the compiled file converter.
     - Clean the CSV file removing unwanted columns.
-    - Parse the bodies and markers file into classes.
+    - Parse the remaining bodies and markers from CSV file to classes.
     - Export them and save in a .npy file
     
   
