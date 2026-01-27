@@ -78,7 +78,7 @@ ThereminMocap/
 
 4. **Manual motive take preparation**
     - Open Motive, load your take, and trim it to remove noisy frames at start and end.
-    - Create one rigid object per antenna naming it as the config name you choose.
+    - Create one rigid body per antenna naming it as the config name you choose.
     - Create one markerset per hand naming it as the config name you choose.
     - Go in to the labelling section and manually relabel the lost markers with the quick label tool.
     - Export the take as a .tak file in the takes folder.
