@@ -2,7 +2,6 @@ from pythonosc import udp_client
 from pythonosc import osc_message_builder
 import time
 import pandas as pd
-import numpy as np
 
 
 oscSender = udp_client.SimpleUDPClient("10.196.223.96", 57120)

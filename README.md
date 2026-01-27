@@ -22,7 +22,8 @@ ThereminMocap/
 ├── utils/
 │   ├── cleaning.py         
 │   ├── config.py           
-│   ├── mocap_parser.py     
+│   ├── mocap_parser.py
+│   ├── plotter.py
 │   └── tak_to_csv.py
 ├── multirecorder.py        # Mocap + ZED + Audio recorder
 ├── prepare_mocap.py        # Mocap preprocessing from TAK to NPY
@@ -30,7 +31,8 @@ ThereminMocap/
 ├── data_loader.py          # PyTorch dataset
 ├── network.py              # Neural network architecture
 ├── main.py                 # Training script
-└── evaluate.py             # Evaluation script
+├── evaluate.py             # Evaluation script
+└── playback_osc.py         # Playback for the theremin inferred parameters
 ```
 
 ## Running the project

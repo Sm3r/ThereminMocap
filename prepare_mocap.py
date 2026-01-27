@@ -3,7 +3,7 @@ import os
 from utils.mocap_parser import Take
 from utils.tak_to_csv import convert_tak_to_csv
 from utils.cleaning import clean_mocap_csv
-from plotter import plot_3d_animation
+from utils.plotter import plot_3d_animation
 from utils.config import config
 
 
