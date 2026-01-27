@@ -61,12 +61,8 @@ class Take:
             self._read_header(csv_reader, verbose)
             self._read_data(csv_reader, verbose)
 
-        print(f"\n=== Take Loaded ===")
-        print(f"Rigid Bodies: {list(self.rigid_bodies.keys())}")
-        print(f"Markers: {list(self.markers.keys())}")
-        print(f"Total Frames: {len(next(iter(self.rigid_bodies.values())).times) if self.rigid_bodies else len(next(iter(self.markers.values())).times) if self.markers else 0}")
-        print(f"Column Mappings: {len(self._column_map)}")
-        print(f"===================\n")
+        print(f"\nRigid Bodies: {list(self.rigid_bodies.keys())}")
+        print(f"\nRaw Markers: {list(self.markers.keys())}")
 
         return self
 
