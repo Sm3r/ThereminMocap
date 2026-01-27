@@ -23,7 +23,7 @@ volume_antenna = volume_antenna / np.max(np.abs(volume_antenna))
 
 # Frame settings
 frame_size = 2048 # 4096
-hop_size = 441
+hop_size = 245
 
 # Extract pitches from both channels
 pitch_extractor = es.PitchYin(frameSize=frame_size)
