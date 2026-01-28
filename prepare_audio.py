@@ -102,5 +102,4 @@ os.makedirs("data/dataframes", exist_ok=True)
 df.to_csv(f"data/dataframes/CV_{take_name}.csv", index=False)
 
 out_audio_feats = np.array([theremin_pitch, theremin_volume]).T
-os.makedirs("out/train", exist_ok=True)
-np.save(f"out/train/{take_name}_audio.npy", out_audio_feats)
+np.save(f"data/dataframes/{take_name}_audio.npy", out_audio_feats)

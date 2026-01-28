@@ -1,6 +1,5 @@
 import csv
 import collections
-import json
 import numpy as np
 
 ColumnMapping = collections.namedtuple('ColumnMapping', ['setter', 'axis', 'column'])
