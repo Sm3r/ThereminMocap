@@ -3,6 +3,8 @@
 *.tak
 *.wav
 
+# Training outputs
+wandb/
 
 .DS_Store
 __pycache__/
