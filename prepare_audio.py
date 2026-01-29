@@ -95,11 +95,16 @@ df = pd.DataFrame({
     "Volume_CV": theremin_volume
 })
 
+# Remove the first and last frames
+df = df.iloc[config.start_trim_frames // 2 : -config.end_trim_frames // 2]
+df = df.reset_index(drop=True)
+df['Frame'] = range(len(df))
+
 print(df.head())
 
 # Save the audio features
 os.makedirs("data/dataframes", exist_ok=True)
 df.to_csv(f"data/dataframes/CV_{take_name}.csv", index=False)
 
-out_audio_feats = np.array([theremin_pitch, theremin_volume]).T
+out_audio_feats = df[['Pitch_CV', 'Volume_CV']].to_numpy()
 np.save(f"data/dataframes/{take_name}_audio.npy", out_audio_feats)

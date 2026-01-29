@@ -75,8 +75,9 @@ def clean_mocap_csv():
     df.columns = df.columns.str.replace(r"_1$", "", regex=True)
     df.columns = df.columns.str.replace("Marker", "")
 
-    # Create a proper sequential frame index starting from 0
-    if 'Frame' in df.columns:
-        df['Frame'] = range(len(df))
+    # Remove the first 100 frames and the last 1000 frames
+    df = df.iloc[config.start_trim_frames : -config.end_trim_frames]
+    df = df.reset_index(drop=True)
+    df['Frame'] = range(len(df))
 
     df.to_csv(f"data/dataframes/MOCAP_{take_name}_CLEAN.csv", index=False)

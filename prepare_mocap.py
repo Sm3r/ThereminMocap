@@ -8,7 +8,7 @@ from utils.config import config
 
 
 #convert_tak_to_csv()
-#clean_mocap_csv()
+clean_mocap_csv()
 
 take = Take()
 take_name = config.take_name

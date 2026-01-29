@@ -14,8 +14,12 @@ class Config:
             with open(self.config_file, 'r') as f:
                 data = json.load(f)
                 self.take_name = data.get('take_name', self.default)
+                self.start_trim_frames = data.get('start_trim_frames', 100)
+                self.end_trim_frames = data.get('end_trim_frames', 2000)
         else:
             self.take_name = self.default
+            self.start_trim_frames = 100
+            self.end_trim_frames = 2000
     
     def set_take_name(self, name):
         self.take_name = name

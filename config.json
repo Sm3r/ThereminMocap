@@ -3,5 +3,7 @@
     "left_hand_name": "LeftHand",
     "right_hand_name": "RightHand",
     "pitch_antenna_name": "pitch",
-    "volume_antenna_name": "volume"
+    "volume_antenna_name": "volume",
+    "start_trim_frames": 100,
+    "end_trim_frames": 2000
 }
