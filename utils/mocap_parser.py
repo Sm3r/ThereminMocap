@@ -59,31 +59,23 @@ class Take:
             csv_reader = csv.reader(file_handle)
             self._read_header(csv_reader, verbose)
             self._read_data(csv_reader, verbose)
-
-        print(f"\nRigid Bodies: {list(self.rigid_bodies.keys())}")
+            
         print(f"\nRaw Markers: {list(self.markers.keys())}")
 
         return self
 
-    def get_all_marker_data_as_array(self):
-
+    def get_markers(self):
         if not self.markers:
             return np.array([])
         
-        # Get number of frames from first marker
-        num_frames = len(next(iter(self.markers.values())).positions)
-        marker_names = sorted(self.markers.keys())  # Sort for consistent ordering
-        num_markers = len(marker_names)
+        marker_names = list(self.markers.keys())
+        num_frames = len(self.markers[marker_names[0]].positions)
+        data = np.zeros((num_frames, len(marker_names) * 3))
         
-        # Initialize array with zeros
-        data = np.zeros((num_frames, num_markers * 3))
-        
-        # Fill array with marker data
         for marker_idx, marker_name in enumerate(marker_names):
-            marker = self.markers[marker_name]
-            for frame_idx, pos in enumerate(marker.positions):
+            for frame_idx, pos in enumerate(self.markers[marker_name].positions):
                 if pos is not None:
-                    data[frame_idx, marker_idx * 3:(marker_idx * 3) + 3] = pos
+                    data[frame_idx, marker_idx * 3:marker_idx * 3 + 3] = pos
         
         return data
 
