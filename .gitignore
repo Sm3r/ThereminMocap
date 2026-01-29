@@ -3,6 +3,10 @@
 *.tak
 *.wav
 
+# Training data files
+out/train/
+out/test/
+
 # Training outputs
 wandb/
 
