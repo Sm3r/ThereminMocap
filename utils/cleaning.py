@@ -4,6 +4,28 @@ import csv
 from utils.config import config
 from collections import defaultdict
 
+def create_outlier_mask(df, columns, deviation_threshold=0.3):
+
+    # Create normalized copy for outlier detection
+    df_normalized = df.copy()
+    for col in columns:
+        if col in df_normalized.columns:
+            col_min = df_normalized[col].min()
+            col_max = df_normalized[col].max()
+            if col_max - col_min != 0:
+                df_normalized[col] = (df_normalized[col] - col_min) / (col_max - col_min)
+    
+    # Detect outliers in normalized data
+    outlier_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    
+    for col in columns:
+        if col in df_normalized.columns:
+            column_median = df_normalized[col].median()
+            distance_from_median = (df_normalized[col] - column_median).abs()
+            outlier_mask[col] = distance_from_median > deviation_threshold
+    
+    return outlier_mask
+
 def clean_mocap_csv():
     take_name = config.take_name
 
@@ -81,38 +103,21 @@ def clean_mocap_csv():
     df = df.reset_index(drop=True)
     df['Frame'] = range(len(df))
     
-    # Normalize all columns except Frame
-    for col in df.columns:
-        if col == 'Frame':
-            continue
-        
-        col_min = df[col].min()
-        col_max = df[col].max()
-        if col_max - col_min != 0:
-            df[col] = (df[col] - col_min) / (col_max - col_min)
-
-    # Removing spikes in the hand markers
+    # Removing spikes in the hand markers using normalized copy for detection
     hand_names = ['RightHand_001', 'RightHand_002', 'RightHand_003', 'RightHand_004', 'RightHand_005', 'RightHand_006', 'RightHand_007', 'LeftHand_001', 'LeftHand_002']
     hand_cols = []
     for name in hand_names:
         hand_cols.extend([f"{name}_X", f"{name}_Y", f"{name}_Z"])
 
-    deviation_threshold = 0.2
+    # Create outlier mask
+    outlier_mask = create_outlier_mask(df, hand_cols, deviation_threshold=0.3)
+    
+    # Apply mask to original data and interpolate
     for col in hand_cols:
-        column_median = df[col].median()
-        distance_from_median = (df[col] - column_median).abs()
-        df.loc[distance_from_median > deviation_threshold, col] = np.nan
-        df[col] = df[col].interpolate(method='pchip', limit_direction='both')
+        if col in df.columns:
+            df.loc[outlier_mask[col], col] = np.nan
+            df[col] = df[col].interpolate(method='pchip', limit_direction='both')
         
-    # Normalize again after spike removal
-    for col in df.columns:
-        if col == 'Frame':
-            continue
-        
-        col_min = df[col].min()
-        col_max = df[col].max()
-        if col_max - col_min != 0:
-            df[col] = (df[col] - col_min) / (col_max - col_min)
     
     df.to_csv(f"data/dataframes/MOCAP_{take_name}_CLEAN.csv", index=False)
     
