@@ -16,10 +16,18 @@ class Config:
                 self.take_name = data.get('take_name', self.default)
                 self.start_trim_frames = data.get('start_trim_frames', 100)
                 self.end_trim_frames = data.get('end_trim_frames', 2000)
+                self.left_hand_name = data.get('left_hand_name', 'LeftHand')
+                self.right_hand_name = data.get('right_hand_name', 'RightHand')
+                self.pitch_antenna_name = data.get('pitch_antenna_name', 'pitch')
+                self.volume_antenna_name = data.get('volume_antenna_name', 'volume')
         else:
             self.take_name = self.default
             self.start_trim_frames = 100
             self.end_trim_frames = 2000
+            self.left_hand_name = 'LeftHand'
+            self.right_hand_name = 'RightHand'
+            self.pitch_antenna_name = 'pitch'
+            self.volume_antenna_name = 'volume'
     
     def set_take_name(self, name):
         self.take_name = name

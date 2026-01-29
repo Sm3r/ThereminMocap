@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import csv
 from utils.config import config
 from collections import defaultdict
@@ -79,5 +80,39 @@ def clean_mocap_csv():
     df = df.iloc[config.start_trim_frames : -config.end_trim_frames]
     df = df.reset_index(drop=True)
     df['Frame'] = range(len(df))
+    
+    # Normalize all columns except Frame
+    for col in df.columns:
+        if col == 'Frame':
+            continue
+        
+        col_min = df[col].min()
+        col_max = df[col].max()
+        if col_max - col_min != 0:
+            df[col] = (df[col] - col_min) / (col_max - col_min)
 
+    # Removing spikes in the hand markers
+    hand_names = ['RightHand_001', 'RightHand_002', 'RightHand_003', 'RightHand_004', 'RightHand_005', 'RightHand_006', 'RightHand_007', 'LeftHand_001', 'LeftHand_002']
+    hand_cols = []
+    for name in hand_names:
+        hand_cols.extend([f"{name}_X", f"{name}_Y", f"{name}_Z"])
+
+    deviation_threshold = 0.2
+    for col in hand_cols:
+        column_median = df[col].median()
+        distance_from_median = (df[col] - column_median).abs()
+        df.loc[distance_from_median > deviation_threshold, col] = np.nan
+        df[col] = df[col].interpolate(method='pchip', limit_direction='both')
+        
+    # Normalize again after spike removal
+    for col in df.columns:
+        if col == 'Frame':
+            continue
+        
+        col_min = df[col].min()
+        col_max = df[col].max()
+        if col_max - col_min != 0:
+            df[col] = (df[col] - col_min) / (col_max - col_min)
+    
     df.to_csv(f"data/dataframes/MOCAP_{take_name}_CLEAN.csv", index=False)
+    
