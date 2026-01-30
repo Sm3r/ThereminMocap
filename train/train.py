@@ -1,7 +1,11 @@
 import torch
+import os
+import numpy as np
+import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
-from data_loader import ThereminDataset
-from network import ThereminRNN, ThereminMLP
+from train.data_loader import ThereminDataset
+from train.network import ThereminRNN, ThereminMLP
+from train.split_dataset import split_dataset
 from einops import rearrange, repeat
 
 
@@ -32,14 +36,6 @@ def train(model, train_dataloader, criterion, optimizer, epoch):
         print(f"Epoch {epoch}: Train Loss: {avg_loss:.6f}")
 
 
-
-
-
-
-import os
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
 
 def _to_2col_numpy(x: torch.Tensor) -> np.ndarray:
     """
@@ -179,9 +175,6 @@ def eval(model, eval_dataloader, criterion, plot_path, device=None):
     # Plot GT (blue) vs Pred (red)
     plot_gt_vs_pred_2d(gt_np, pred_np, plot_path, title=f"GT vs Pred (Eval) — loss {avg_loss:.6f}")
 
-
-
-
     
 
 
@@ -190,6 +183,7 @@ if __name__ == "__main__":
     NUM_EPOCHS = 30
     LEARNING_RATE = 1e-5
 
+    split_dataset()
     train_dataset = ThereminDataset(training=True)
     train_dataloader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_dataset = ThereminDataset(training=False)

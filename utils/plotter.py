@@ -297,5 +297,3 @@ def plot_all_markers():
     fig.legend(loc='center right', fontsize=8, bbox_to_anchor=(1.0, 0.5))
     plt.tight_layout(rect=[0, 0, 0.85, 1])  # Make room for legend on the right
     plt.show()
-
-plot_all_markers()

@@ -48,6 +48,6 @@ class ThereminDataset(Dataset):
     
 
 # Example usage
-dataset = ThereminDataset()
+'''dataset = ThereminDataset()
 plot_hands(dataset)
-plot_audio_correlation(dataset)
+plot_audio_correlation(dataset)'''

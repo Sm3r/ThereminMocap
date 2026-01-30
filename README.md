@@ -18,18 +18,22 @@ ThereminMocap/
 │   ├── dataframes/         
 │   └── takes/             
 ├── out/
-│   └── train/             
+│   ├── train/         
+│   └── test/           
 ├── utils/
 │   ├── cleaning.py         
 │   ├── config.py           
 │   ├── mocap_parser.py
 │   ├── plotter.py
 │   └── tak_to_csv.py
+├── train/
+│   ├── split_dataset.py         
+│   ├── data_loader.py           
+│   ├── network.py
+│   └── train.py
 ├── multirecorder.py        # Mocap + ZED + Audio recorder
 ├── prepare_mocap.py        # Mocap preprocessing from TAK to NPY
 ├── prepare_audio.py        # Audio preprocessing from WAV to NPY
-├── data_loader.py          # PyTorch dataset
-├── network.py              # Neural network architecture
 ├── main.py                 # Training script
 ├── evaluate.py             # Evaluation script
 └── playback_osc.py         # Playback for the theremin inferred parameters
@@ -113,7 +117,7 @@ ThereminMocap/
 
 7. **Train the neural network**:
    ```bash
-   python3 main.py
+   python3 -m train.train
    ```
 
 ### Evaluation
