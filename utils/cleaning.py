@@ -83,13 +83,9 @@ def clean_mocap_csv():
     df = df.drop(columns=cols_to_drop)
 
     # Removing unwanted columns (but keep Frame column)
-    df_clean = df.loc[:, ~df.columns.str.contains('Unlabeled|Bone Marker|Time|Bone|Rigid Body Marker', case=False) | (df.columns == 'Frame')]
-
-    print(f"Original Count: {len(df.columns)}, Final Count:    {len(df_clean.columns)}")
+    df = df.loc[:, ~df.columns.str.contains('Unlabeled|Bone Marker|Time|Bone|Rigid Body Marker|Rigid', case=False) | (df.columns == 'Frame')]
 
     # Better naming for clarity
-    df = df_clean
-
     prefix_pattern = r"Rigid Body Marker_|Rigid Body_|Marker_"
 
     df.columns = df.columns.str.replace(prefix_pattern, "", regex=True)
