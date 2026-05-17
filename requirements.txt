@@ -15,4 +15,8 @@ vispy>=0.12.0
 # Environment variables
 python-dotenv>=1.0.0
 
+# Hand tracking
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+
 
