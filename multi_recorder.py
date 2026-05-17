@@ -3,7 +3,7 @@ import time
 import wave
 import pyaudio
 import pyzed.sl as sl
-from utils.natnet.NatNetClient import NatNetClient
+from mocap_tools.natnet.NatNetClient import NatNetClient
 import array
 import sys
 import os

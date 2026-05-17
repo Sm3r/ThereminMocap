@@ -1,8 +1,8 @@
 import subprocess
 import os
 import platform
-from .config import config
-from pathlib import Path, PureWindowsPath
+from utils.config import config
+from pathlib import Path
 
 
 def _to_windows_path(path: Path) -> str:

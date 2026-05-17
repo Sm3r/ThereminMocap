@@ -1,7 +1,7 @@
 import numpy as np
-from utils.mocap_parser import Take
-from utils.tak_to_csv import convert_tak_to_csv
-from utils.cleaning import clean_mocap_csv
+from mocap_tools.mocap_parser import Take
+from mocap_tools.tak_to_csv import convert_tak_to_csv
+from mocap_tools.cleaning import clean_mocap_csv
 from utils.config import config
 
 

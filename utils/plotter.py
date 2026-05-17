@@ -2,7 +2,7 @@ import vispy.scene
 from vispy.scene import visuals
 import numpy as np
 import matplotlib.pyplot as plt
-from utils.mocap_parser import Take
+from mocap_tools.mocap_parser import Take
 from utils.config import config
 
 # Used in the prepare mocap
