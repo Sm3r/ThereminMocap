@@ -7,6 +7,7 @@ from utils.natnet.NatNetClient import NatNetClient
 import array
 import sys
 import os
+from dotenv import load_dotenv
 import shutil
 from utils.config import config
 
@@ -25,8 +26,10 @@ INPUT_CHANNELS = 8
 chunk = 1024
 sample_format = pyaudio.paInt16
 channels = 8
-fs = 44100
+fs = 48000
 
+
+load_dotenv()
 
 # Prevent overwriting
 if config.check_files_exist():
@@ -100,44 +103,45 @@ def audio_thread_fn():
 # ==========================
 # ZED THREAD
 # ==========================
-def zed_thread_fn():
-    print("[ZED] Starting ZED thread")
+def zed_thread_fn(serial_number, output_file):
+    print(f"[ZED {serial_number}] Starting")
 
     cam = sl.Camera()
 
     init = sl.InitParameters()
+    init.set_from_serial_number(serial_number)
     init.depth_mode = sl.DEPTH_MODE.NONE
-    init.camera_resolution = sl.RESOLUTION.VGA
-    init.camera_fps = 60
+    init.camera_resolution = sl.RESOLUTION.HD720 # VGA
+    init.camera_fps = 30 #60
     init.async_image_retrieval = False
 
     status = cam.open(init)
     if status != sl.ERROR_CODE.SUCCESS:
-        print("[ZED] Camera open failed:", status)
+        print(f"[ZED {serial_number}] Open failed:", status)
         return
 
     recording_param = sl.RecordingParameters(
-        output_svo_file,
+        output_file,
         sl.SVO_COMPRESSION_MODE.H264
     )
 
     err = cam.enable_recording(recording_param)
     if err != sl.ERROR_CODE.SUCCESS:
-        print("[ZED] Recording error:", err)
+        print(f"[ZED {serial_number}] Recording error:", err)
         cam.close()
         return
 
     runtime = sl.RuntimeParameters()
-    frames_recorded = 0
+    frames = 0
 
     while not stop_event.is_set():
         if cam.grab(runtime) == sl.ERROR_CODE.SUCCESS:
-            frames_recorded += 1
-            print(f"[ZED] Frames: {frames_recorded}", end="\r")
+            frames += 1
+            print(f"[ZED {serial_number}] Frames: {frames}", end="\r")
 
     cam.disable_recording()
     cam.close()
-    print("\n[ZED] ZED thread stopped")
+    print(f"\n[ZED {serial_number}] Stopped")
 
 # ==========================
 # NATNET THREAD
@@ -178,8 +182,18 @@ if record_audio:
     ))
 
 if record_zed:
+    serial_1 = int(os.getenv("ZED_SERIAL_1"))
+    serial_2 = int(os.getenv("ZED_SERIAL_2"))
+
     threads.append(threading.Thread(
         target=zed_thread_fn,
+        args=(serial_1, f"data/takes/{name}_cam1.svo"),
+        daemon=True
+    ))
+
+    threads.append(threading.Thread(
+        target=zed_thread_fn,
+        args=(serial_2, f"data/takes/{name}_cam2.svo"),
         daemon=True
     ))
 
