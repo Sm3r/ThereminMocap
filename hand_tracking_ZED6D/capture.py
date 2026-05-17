@@ -31,7 +31,7 @@ def _initialize_name_dict(num_cams=1):
     return name_dict
 
 
-def capture_to_csv(filename=None, output_csv=None, window_title='Image', timestamped=False, show_windows=True, print_fps=False):
+def capture_to_csv(filename=None, output_csv=None, window_title='Image', timestamped=False, show_windows=False, print_fps=False):
     """Capture hand keypoints from a ZED camera or SVO and save to CSV.
 
     - `filename`: path to SVO file. If None, uses live camera.
@@ -206,6 +206,8 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
 
             # advance frame once and append a single combined row
             frame += 1
+            if filename and not show_windows:
+                print(f"\r  Processed {frame} / {final_frame} frames", end="", flush=True)
             row = {}
             row['Frame'] = frame
 

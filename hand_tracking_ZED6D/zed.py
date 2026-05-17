@@ -19,16 +19,24 @@ class Zed():
         # Initialize the ZED camera
         self.zed = sl.Camera()
         self.init_params = sl.InitParameters(input_t=self.input_type)
-        self.init_params.camera_resolution = sl.RESOLUTION.VGA
-        self.init_params.camera_fps = 30
 
-        self.init_params.depth_mode = sl.DEPTH_MODE.PERFORMANCE
-        self.init_params.coordinate_units = sl.UNIT.METER
+        if self.svo_mode:
+            # Best quality for dataset creation – speed doesn't matter
+            self.init_params.depth_mode = sl.DEPTH_MODE.NEURAL_PLUS
+            self.init_params.svo_real_time_mode = False
+            confidence = 20
+        else:
+            # Live preview – prioritise FPS
+            self.init_params.camera_resolution = sl.RESOLUTION.VGA
+            self.init_params.camera_fps = 30
+            self.init_params.depth_mode = sl.DEPTH_MODE.PERFORMANCE
+            
+            confidence = depth_confidence
+
         self.init_params.depth_minimum_distance = 0.3
         self.init_params.depth_maximum_distance = 40
+        self.init_params.coordinate_units = sl.UNIT.METER
 
-
- 
         # Open the camera
         err = self.zed.open(self.init_params)
         if err != sl.ERROR_CODE.SUCCESS :
@@ -43,10 +51,9 @@ class Zed():
 
         # Create and set RuntimeParameters after opening the camera
         self.runtime_parameters = sl.RuntimeParameters()
-        # self.runtime_parameters.sensing_mode = sl.SENSING_MODE.FILL  # Use FILL sensing mode
-        # Setting the depth confidence parameters
-        self.runtime_parameters.confidence_threshold = depth_confidence
-        # self.runtime_parameters.textureness_confidence_threshold = depth_confidence
+        #if self.svo_mode:
+        #    self.runtime_parameters.sensing_mode = sl.SENSING_MODE.FILL
+        self.runtime_parameters.confidence_threshold = confidence
 
         # Get Camera Calibration Parameters
         # self.camera_params = self.zed.get_camera_information().calibration_parameters.left_cam
