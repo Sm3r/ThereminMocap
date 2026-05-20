@@ -49,8 +49,7 @@ stop_event = threading.Event()
 # ==========================
 
 def audio_thread_fn():
-    print("[AUDIO] Starting")
-
+    print("[AUDIO] Initializing")
     p = pyaudio.PyAudio()
     stream = p.open(
         format=sample_format,
@@ -60,9 +59,18 @@ def audio_thread_fn():
         input_device_index=21,
         frames_per_buffer=1024
     )
-
     recorded_frames = []
 
+    print("[AUDIO] Ready, waiting for all streams…")
+    try:
+        start_barrier.wait()
+    except threading.BrokenBarrierError:
+        print("[AUDIO] Barrier broken, aborting.")
+        stream.close()
+        p.terminate()
+        return
+
+    print("[AUDIO] Recording")
     while not stop_event.is_set():
         try:
             data = stream.read(1024, exception_on_overflow=False)
@@ -104,7 +112,7 @@ def audio_thread_fn():
 # ZED THREAD
 # ==========================
 def zed_thread_fn(serial_number, output_file):
-    print(f"[ZED {serial_number}] Starting")
+    print(f"[ZED {serial_number}] Initializing")
 
     cam = sl.Camera()
 
@@ -132,8 +140,18 @@ def zed_thread_fn(serial_number, output_file):
         return
 
     runtime = sl.RuntimeParameters()
-    frames = 0
 
+    print(f"[ZED {serial_number}] Ready, waiting for all streams…")
+    try:
+        start_barrier.wait()
+    except threading.BrokenBarrierError:
+        print(f"[ZED {serial_number}] Barrier broken, aborting.")
+        cam.disable_recording()
+        cam.close()
+        return
+
+    frames = 0
+    print(f"[ZED {serial_number}] Recording")
     while not stop_event.is_set():
         if cam.grab(runtime) == sl.ERROR_CODE.SUCCESS:
             frames += 1
@@ -147,7 +165,7 @@ def zed_thread_fn(serial_number, output_file):
 # NATNET THREAD
 # ==========================
 def natnet_thread_fn():
-    print("[MOTION] Starting NatNet thread")
+    print("[MOTION] Initializing NatNet thread")
 
     client = NatNetClient()
     client.set_server_address('127.0.0.1')
@@ -159,6 +177,15 @@ def natnet_thread_fn():
         return
 
     client.send_command(f"SetRecordTakeName,{tak_filename}")
+
+    print("[MOTION] Ready, waiting for all streams…")
+    try:
+        start_barrier.wait()
+    except threading.BrokenBarrierError:
+        print("[MOTION] Barrier broken, aborting.")
+        client.shutdown()
+        return
+
     client.send_command("StartRecording")
     print(f"[MOTION] Recording '{tak_filename}.tak'")
 
@@ -203,6 +230,8 @@ if record_motion:
         daemon=True
     ))
 
+start_barrier = threading.Barrier(len(threads), timeout=45)
+
 for t in threads:
     t.start()
 
@@ -212,6 +241,14 @@ try:
 except KeyboardInterrupt:
     print("Stopping…")
     stop_event.set()
+    # Reset the barrier so waiting threads can proceed to exit
+    if start_barrier.broken:
+        start_barrier.reset()
+    else:
+        try:
+            start_barrier.abort()
+        except ValueError:
+            pass
 
 
 for t in threads:
