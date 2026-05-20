@@ -10,24 +10,12 @@ from .zed import Zed
 import pyzed.sl as sl
 
 
-def _initialize_name_dict(num_cams=1):
-    name_dict = {}
-    name_dict['Frame'] = []
-    
-
-    # For each camera, add palm centroid/orientation and flattened landmark columns
-    for cam_idx in range(num_cams):
-        prefix = f"cam{cam_idx}"
-        for hand in ['left', 'right']:
-            for field in ['X', 'Y', 'Z', 'Yaw', 'Pitch', 'Roll']:
-                name_dict[f"{prefix} {hand} {field}"] = []
-
-        for hand in ['left', 'right']:
-            for i in range(21):
-                for axis in ['X', 'Y', 'Z']:
-                    name = f"{prefix} {hand} {i} {axis}"
-                    name_dict[name] = []
-
+def _initialize_name_dict():
+    name_dict = {'Frame': []}
+    for hand in ['left', 'right']:
+        for i in range(21):
+            for axis in ['X', 'Y', 'Z']:
+                name_dict[f"{hand}_{i:02d}_{axis}"] = []
     return name_dict
 
 
@@ -82,8 +70,7 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
         # Live streams are open indefinitely unless SVO provided
         final_frame = float('inf')
 
-    # initialize columns for all opened cameras (use row-buffering)
-    columns = list(_initialize_name_dict(len(zed_list)).keys())
+    columns = list(_initialize_name_dict().keys())
     rows = []
 
     # ensure camera params list is available for per-camera processing
@@ -96,8 +83,6 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
         detectors = [detector]
 
     frame = 0
-    lx = ly = lz = lyaw = lpitch = lroll = 0
-    rx = ry = rz = ryaw = rpitch = rroll = 0
     first_print = True
 
     # Loop: grab from each opened camera and produce one row per frame containing all camera columns
@@ -114,7 +99,9 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
 
         active_cam.get_image()
 
-        img = active_cam.img
+        img = active_cam.img.copy()
+        if img.ndim == 3 and img.shape[2] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
         depth_img = active_cam.depth_img
         pcl = active_cam.point_cloud
 
@@ -125,20 +112,12 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
             img_processed = None
 
         camera_params = camera_params_list[idx]
-        data_left, data_right = detectors[idx].findpostion(depth_img, pcl, camera_params)
-        left_orient = detectors[idx].calculate_orientation(data_left)
-        left_centroid = detectors[idx].calculate_centroid(data_left)
-        right_orient = detectors[idx].calculate_orientation(data_right)
-        right_centroid = detectors[idx].calculate_centroid(data_right)
+        data_left, data_right = detectors[idx].findpostion(img, pcl, camera_params)
 
         entry = {
             'img': img_processed,
             'left_data': data_left,
             'right_data': data_right,
-            'left_centroid': left_centroid,
-            'left_orient': left_orient,
-            'right_centroid': right_centroid,
-            'right_orient': right_orient,
         }
         fps_value = detectors[idx].get_fps() if (not show_windows and print_fps) else None
         return {"idx": idx, "success": True, "entry": entry, "fps": fps_value}
@@ -168,7 +147,9 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
                         continue
                     any_success = True
                     active_cam.get_image()
-                    img = active_cam.img
+                    img = active_cam.img.copy()
+                    if img.ndim == 3 and img.shape[2] == 4:
+                        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
                     depth_img = active_cam.depth_img
                     pcl = active_cam.point_cloud
 
@@ -178,20 +159,12 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
                         detectors[idx].findHands(img)
                         img_processed = None
                     camera_params = camera_params_list[idx]
-                    data_left, data_right = detectors[idx].findpostion(depth_img, pcl, camera_params)
-                    left_orient = detectors[idx].calculate_orientation(data_left)
-                    left_centroid = detectors[idx].calculate_centroid(data_left)
-                    right_orient = detectors[idx].calculate_orientation(data_right)
-                    right_centroid = detectors[idx].calculate_centroid(data_right)
+                    data_left, data_right = detectors[idx].findpostion(img, pcl, camera_params)
 
                     per_cam[idx] = {
                         'img': img_processed,
                         'left_data': data_left,
                         'right_data': data_right,
-                        'left_centroid': left_centroid,
-                        'left_orient': left_orient,
-                        'right_centroid': right_centroid,
-                        'right_orient': right_orient,
                     }
 
                     if show_windows:
@@ -211,38 +184,8 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
             row = {}
             row['Frame'] = frame
 
-            for idx in range(num_cams):
-                cam_prefix = f"cam{idx}"
-                entry = per_cam[idx]
-
-                # palm centroid/orientation (only if full 21 landmarks were found)
-                if entry and isinstance(entry['left_data'], np.ndarray) and entry['left_data'].shape == (21, 3):
-                    lx, ly, lz = entry['left_centroid']
-                    lyaw, lpitch, lroll = entry['left_orient']
-                else:
-                    lx = ly = lz = lyaw = lpitch = lroll = np.nan
-
-                if entry and isinstance(entry['right_data'], np.ndarray) and entry['right_data'].shape == (21, 3):
-                    rx, ry, rz = entry['right_centroid']
-                    ryaw, rpitch, rroll = entry['right_orient']
-                else:
-                    rx = ry = rz = ryaw = rpitch = rroll = np.nan
-
-                row[f"{cam_prefix} left X"] = lx
-                row[f"{cam_prefix} left Y"] = ly
-                row[f"{cam_prefix} left Z"] = lz
-                row[f"{cam_prefix} left Yaw"] = lyaw
-                row[f"{cam_prefix} left Pitch"] = lpitch
-                row[f"{cam_prefix} left Roll"] = lroll
-
-                row[f"{cam_prefix} right X"] = rx
-                row[f"{cam_prefix} right Y"] = ry
-                row[f"{cam_prefix} right Z"] = rz
-                row[f"{cam_prefix} right Yaw"] = ryaw
-                row[f"{cam_prefix} right Pitch"] = rpitch
-                row[f"{cam_prefix} right Roll"] = rroll
-
-                # flattened landmarks
+            if num_cams == 1:
+                entry = per_cam[0]
                 dl = entry['left_data'] if (entry is not None) else None
                 dr = entry['right_data'] if (entry is not None) else None
 
@@ -253,18 +196,18 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
 
                 for i in range(21):
                     for axis_idx, axis in enumerate(['X', 'Y', 'Z']):
-                        col_l = f"{cam_prefix} left {i} {axis}"
+                        col = f"left_{i:02d}_{axis}"
                         if isinstance(dl, np.ndarray) and dl.shape == (21, 3):
-                            row[col_l] = float(dl[i, axis_idx])
+                            row[col] = float(dl[i, axis_idx])
                         else:
-                            row[col_l] = np.nan
+                            row[col] = np.nan
 
                     for axis_idx, axis in enumerate(['X', 'Y', 'Z']):
-                        col_r = f"{cam_prefix} right {i} {axis}"
+                        col = f"right_{i:02d}_{axis}"
                         if isinstance(dr, np.ndarray) and dr.shape == (21, 3):
-                            row[col_r] = float(dr[i, axis_idx])
+                            row[col] = float(dr[i, axis_idx])
                         else:
-                            row[col_r] = np.nan
+                            row[col] = np.nan
 
             rows.append(row)
 

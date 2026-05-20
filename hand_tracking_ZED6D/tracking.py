@@ -2,10 +2,11 @@ import cv2
 import time
 import mediapipe as mp
 import numpy as np
+import pyzed.sl as sl
 
 
 class HandTracking():
-    def __init__(self, maxHands=2, detectionCon=0.2, trackCon=0.8, complexity=1, draw=True):
+    def __init__(self, maxHands=2, detectionCon=0.4, trackCon=0.8, complexity=1, draw=True):
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(
             static_image_mode=False,
@@ -26,18 +27,11 @@ class HandTracking():
     def findHands(self, img):
         self.image_height, self.image_width, _ = img.shape
         
-        img.flags.writeable = False
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # flip the image horizontally for a selfie-view display.
-        # img = cv2.flip(img, 1)
-        self.results = self.hands.process(img)
-        img.flags.writeable = True
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-
+        rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        self.results = self.hands.process(rgb_img)
 
         if self.draw and self.results.multi_hand_landmarks:
             for hand_landmarks in self.results.multi_hand_landmarks:
-     
                 self.mp_draw.draw_landmarks(
                     img, 
                     hand_landmarks, 
@@ -46,15 +40,12 @@ class HandTracking():
                     self.mp_styles.get_default_hand_connections_style()
                 )
 
-            
         return img
 
     
-    def findpostion(self, img, pcl,camera_params):
-        fx = camera_params.fx  # Focal length in pixels (x-axis)
-        fy = camera_params.fy  # Focal length in pixels (y-axis)
-        cx = camera_params.cx  # X-coordinate of the principal point
-        cy = camera_params.cy  # Y-coordinate of the principal point
+    def findpostion(self, img, pcl, camera_params):
+        fx = camera_params.fx
+        fy = camera_params.fy
         h, w, _ = img.shape
         left_data = []
         right_data = []
@@ -62,31 +53,30 @@ class HandTracking():
             for landmarks in self.results.multi_hand_landmarks:
                 handedness = self.results.multi_handedness[self.results.multi_hand_landmarks.index(landmarks)].classification[0].index
 
-                # First, get the wrist landmark (index 0) and its image pixel coordinates
                 wrist_landmark = landmarks.landmark[0]
-                wrist_landmark_coordinate = [wrist_landmark.x, wrist_landmark.y, wrist_landmark.z]
-                X, Y = int(wrist_landmark.x * w), int(wrist_landmark.y * h)
+                wrist_u = wrist_landmark.x * w
+                wrist_v = wrist_landmark.y * h
+                X, Y = int(wrist_u), int(wrist_v)
 
-                # draw circle on wrist
                 if self.draw:
                     cv2.circle(img, (X, Y), 10, (0, 0, 255), -1)
 
-                # Try to get wrist 3D point from point cloud; if unavailable, skip this hand
                 try:
                     err, point_cloud_value = pcl.get_value(X, Y)
-                    wrist_position = [point_cloud_value[0], point_cloud_value[1], point_cloud_value[2]]
                 except Exception:
-                    # cannot get wrist depth, skip computing this hand's landmarks
                     continue
+                if err != sl.ERROR_CODE.SUCCESS:
+                    continue
+                wrist_position = [point_cloud_value[0], point_cloud_value[1], point_cloud_value[2]]
 
-                # Compute 3D positions for all landmarks using wrist as the reference
                 for id, landmark in enumerate(landmarks.landmark):
-                    x_3d = wrist_position[0] + (landmark.x * w - wrist_landmark_coordinate[0] * w - cx) * wrist_position[2] / fx
-                    y_3d = wrist_position[1] + (landmark.y * h - wrist_landmark_coordinate[1] * h - cy) * wrist_position[2] / fy
-                    z_3d = wrist_position[2] + (landmark.z - wrist_landmark_coordinate[2]) * wrist_position[2]
+                    u = landmark.x * w
+                    v = landmark.y * h
+                    x_3d = wrist_position[0] + (u - wrist_u) * wrist_position[2] / fx
+                    y_3d = wrist_position[1] + (v - wrist_v) * wrist_position[2] / fy
+                    z_3d = wrist_position[2] + landmark.z * wrist_position[2] * w / fx
                     hand_landmarks_3d = [x_3d, y_3d, z_3d]
 
-                    # append the 3D position of each landmark to the correct hand list
                     if handedness == 1:
                         left_data.append(hand_landmarks_3d)
                         if self.draw:
@@ -95,13 +85,10 @@ class HandTracking():
                         right_data.append(hand_landmarks_3d)
                         if self.draw:
                             cv2.putText(img, "Right", (X, Y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-               
-   
-        # Convert the data to a numpy array
+
         left_data = np.array(left_data)
         right_data = np.array(right_data)
-        self.stdout_hand_detection(left_data,right_data)
-      
+        self.stdout_hand_detection(left_data, right_data)
 
         return left_data, right_data
     
