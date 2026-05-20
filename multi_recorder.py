@@ -9,7 +9,7 @@ import sys
 import os
 from dotenv import load_dotenv
 import shutil
-from utils.config import config
+from config import config
 
 # ==========================
 # CONFIG

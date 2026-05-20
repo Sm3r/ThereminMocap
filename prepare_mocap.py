@@ -1,6 +1,6 @@
 import numpy as np
 from mocap_tools import Take, clean_mocap_csv, convert_tak_to_csv
-from utils.config import config
+from config import config
 
 
 print("\nPreparing mocap data...")

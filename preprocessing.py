@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import pandas as pd
 
-from utils.config import config
+from config import config
 
 
 def _create_spike_mask(df: pd.DataFrame, columns: list[str],

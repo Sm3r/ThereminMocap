@@ -1,6 +1,8 @@
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 import numpy as np
-import os
-from utils.config import config
+from config import config
 
 def split_dataset(ratio=0.8):
     take_name = config.take_name
@@ -34,3 +36,6 @@ def split_dataset(ratio=0.8):
 
     np.save(f"out/test/{take_name}_audio.npy", test_audio)
     np.save(f"out/test/{take_name}.npy", test_mocap)
+
+if __name__ == '__main__':
+    split_dataset()

@@ -1,7 +1,9 @@
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from torch.utils.data import Dataset
 import numpy as np
-from utils.config import config
-from utils.plotter import plot_hands, plot_audio_correlation
+from config import config
 
 def calculate_median(mocap, start_idx, end_idx):
     return np.median(mocap[:, start_idx:end_idx], axis=0) 

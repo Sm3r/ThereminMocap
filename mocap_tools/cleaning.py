@@ -1,7 +1,10 @@
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 import pandas as pd
 import numpy as np
 import csv
-from utils.config import config
+from config import config
 from collections import defaultdict
 
 def create_outlier_mask(df, columns, deviation_threshold=0.3):

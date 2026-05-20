@@ -9,7 +9,7 @@ import pandas as pd
 
 from hand_tracking_ZED6D.capture import capture_to_csv
 from preprocessing import preprocess_csv, fix_hand_labels
-from utils.config import config
+from config import config
 
 
 parser = argparse.ArgumentParser()
