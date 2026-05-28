@@ -10,7 +10,7 @@ take_name = config.take_name
 
 # Load the audio file using librosa
 audio_path = f"data/takes/{take_name}.wav"
-audio, sample_rate = librosa.load(audio_path, sr=44100, mono=False)
+audio, sample_rate = librosa.load(audio_path, sr=config.rates.audio_sr, mono=False)
 
 # Split into 3 separate channels
 pitch_antenna = audio[0, :]
@@ -23,7 +23,7 @@ volume_antenna = volume_antenna / np.max(np.abs(volume_antenna))
 
 # Frame settings
 frame_size = 2048 # 4096
-hop_size = 245
+hop_size = config.rates.audio_hop
 
 # Extract pitches from both channels
 pitch_extractor = es.PitchYin(frameSize=frame_size)
@@ -95,8 +95,6 @@ df = pd.DataFrame({
     "Volume_CV": theremin_volume
 })
 
-# Remove the first and last frames
-df = df.iloc[config.start_trim_frames // 2 : -config.end_trim_frames // 2]
 df = df.reset_index(drop=True)
 df['Frame'] = range(len(df))
 

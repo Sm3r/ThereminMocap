@@ -1,9 +1,16 @@
 {
     "take_name": "TestZED",
-    "left_hand_name": "LeftHand",
-    "right_hand_name": "RightHand",
-    "pitch_antenna_name": "pitch",
-    "volume_antenna_name": "volume",
-    "start_trim_frames": 100,
-    "end_trim_frames": 2000
+    "names": {
+        "left_hand": "LeftHand",
+        "right_hand": "RightHand",
+        "pitch_antenna": "pitch",
+        "volume_antenna": "volume"
+    },
+    "rates": {
+        "mocap_fps": 120,
+        "target_fps": 60,
+        "audio_sr": 44100,
+        "audio_hop": 245,
+        "zed_fps": 30
+    }
 }

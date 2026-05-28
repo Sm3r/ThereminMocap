@@ -19,10 +19,10 @@ def plot_all_markers(mocap_data=None, marker_names=None,
         take.readCSV(f"data/dataframes/MOCAP_{take_name}_CLEAN.csv")
         mocap_data = np.load(f"data/dataframes/{take_name}.npy")
         marker_names = list(take.markers.keys())
-        left_name = config.left_hand_name
-        right_name = config.right_hand_name
-        pitch_name = config.pitch_antenna_name
-        volume_name = config.volume_antenna_name
+        left_name = config.names.left_hand
+        right_name = config.names.right_hand
+        pitch_name = config.names.pitch_antenna
+        volume_name = config.names.volume_antenna
 
     num_features = mocap_data.shape[1]
     num_markers = num_features // 3

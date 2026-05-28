@@ -8,7 +8,7 @@ print("\nPreparing mocap data...")
 print("Cleaning mocap CSV...")
 clean_mocap_csv()
 print("Loading mocap data...")
-take = Take()
+take = Take(frame_rate=config.rates.mocap_fps)
 take_name = config.take_name
 take.readCSV(f"data/dataframes/MOCAP_{take_name}_CLEAN.csv")
 
@@ -26,10 +26,11 @@ all_data = take.get_markers()
 print(f"\nDownsampling the mocap data:")
 print(f"Original shape: {all_data.shape}")
 
-# Downsample 2x to match audio rate
+# Downsample to target fps
+ds_factor = config.rates.mocap_fps // config.rates.target_fps
 num_frames = all_data.shape[0]
-downsampled_frames = num_frames // 2
-all_data = (all_data[0::2][:downsampled_frames] + all_data[1::2][:downsampled_frames]) / 2
+downsampled_frames = num_frames // ds_factor
+all_data = sum(all_data[i::ds_factor][:downsampled_frames] for i in range(ds_factor)) / ds_factor
 print(f"Downsampled shape: {all_data.shape}")
 
 np.save(f"data/dataframes/{take_name}.npy", all_data)

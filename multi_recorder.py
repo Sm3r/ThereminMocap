@@ -26,7 +26,7 @@ INPUT_CHANNELS = 8
 chunk = 1024
 sample_format = pyaudio.paInt16
 channels = 8
-fs = 48000
+fs = config.rates.audio_sr
 
 
 load_dotenv()
@@ -120,7 +120,7 @@ def zed_thread_fn(serial_number, output_file):
     init.set_from_serial_number(serial_number)
     init.depth_mode = sl.DEPTH_MODE.NONE
     init.camera_resolution = sl.RESOLUTION.HD720 # VGA
-    init.camera_fps = 30 #60
+    init.camera_fps = config.rates.zed_fps
     init.async_image_retrieval = False
 
     status = cam.open(init)
