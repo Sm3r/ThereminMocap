@@ -10,8 +10,8 @@ SC_PORT = 57120
 
 client = SimpleUDPClient(SC_IP, SC_PORT)
 
-client.send_message("/synth/control", [440, 0.2])
+client.send_message("/control", [440, 0.2])
 time.sleep(1)
-client.send_message("/synth/control", [660, 0.15])
+client.send_message("/control", [660, 0.15])
 time.sleep(1)
-client.send_message("/synth/control", [220, 0.4])
+client.send_message("/control", [220, 0.4])
