@@ -1,13 +1,16 @@
 import pyzed.sl as sl
 
 class Zed():
-    def __init__(self,filename=None,depth_confidence=100):
+    def __init__(self, filename=None, depth_confidence=100, camera_serial=None):
 
         print("Bringing Up ZED CAMERA Information...")
         # Decide if SVO or Live
         if filename is None:
-            print("Using Live stream from ZED camera")
+            serial_str = str(camera_serial) if camera_serial is not None else "default"
+            print(f"Using Live stream from ZED camera (serial: {serial_str})")
             self.input_type = sl.InputType()
+            if camera_serial is not None:
+                self.input_type.set_from_serial_number(camera_serial)
             self.svo_mode = False
         else:
             filepath = filename
@@ -28,8 +31,8 @@ class Zed():
         else:
             # Live preview – prioritise FPS
             self.init_params.camera_resolution = sl.RESOLUTION.VGA
-            self.init_params.camera_fps = 30
-            self.init_params.depth_mode = sl.DEPTH_MODE.PERFORMANCE
+            self.init_params.camera_fps = 60
+            self.init_params.depth_mode = sl.DEPTH_MODE.NEURAL_LIGHT
             
             confidence = depth_confidence
 
@@ -70,7 +73,7 @@ class Zed():
         self.image = sl.Mat()
         self.depth = sl.Mat()
         self.point_cloud = sl.Mat()
-        self.confidence_map = sl.Mat()
+        # self.confidence_map = sl.Mat()
 
     def print_information(self):
         print("Resolution: {0}, {1}.".format(
@@ -95,7 +98,7 @@ class Zed():
         # Retrieve colored point cloud. Point cloud is aligned on the left image.
         self.zed.retrieve_measure(self.point_cloud, sl.MEASURE.XYZRGBA, sl.MEM.CPU)
         # Retrieve confidence map.
-        self.zed.retrieve_measure(self.confidence_map, sl.MEASURE.CONFIDENCE, sl.MEM.CPU)
+        # self.zed.retrieve_measure(self.confidence_map, sl.MEASURE.CONFIDENCE, sl.MEM.CPU)
 
         # convert zed image to numpy array
         self.img = self.image.get_data()

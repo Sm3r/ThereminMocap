@@ -1,25 +1,27 @@
 
-SynthDef(\thereSynth, { |freq = 440, amp = 0.2, gate = 1, frame=0.0333|
-    var sig, env;
+s.options.outDevice = "Windows DirectSound : DELL S2421H (NVIDIA High Definition Audio)";
 
-    env = EnvGen.kr(Env.asr(0.01, 1, 0.2), gate, doneAction: 2);
-    sig = SinOsc.ar(freq.lag(frame)) * amp.lag(frame) * env;
+s.waitForBoot {
+    SynthDef(\thereSynth, { |freq = 440, amp = 0.2, gate = 1, frame=0.0333|
+        var sig, env;
 
-    Out.ar(0, sig!2);
-}).add;
+        env = EnvGen.kr(Env.asr(0.01, 1, 0.2), gate, doneAction: 2);
+        sig = SinOsc.ar(freq.lag(frame)) * amp.lag(frame) * env;
 
+        Out.ar(0, sig!2);
+    }).add;
 
-~theremin = Synth.new(\thereSynth);
+    s.sync;
 
+    ~theremin = Synth.new(\thereSynth);
 
-OSCdef(\controller, { |msg|
-	var freq, amp;
+    OSCdef(\pitchCtrl, { |msg|
+        var freq = msg[1].asFloat;
+        ~theremin.set(\freq, freq);
+    }, '/pitch');
 
-    freq = msg[1].asFloat;
-    amp = msg[2].asFloat;
-
-    [freq, amp].postln;
-
-    ~theremin.set(\freq, freq, \amp, amp);
-
-}, '/control');
+    OSCdef(\volumeCtrl, { |msg|
+        var amp = msg[1].asFloat;
+        ~theremin.set(\amp, amp);
+    }, '/volume');
+};
