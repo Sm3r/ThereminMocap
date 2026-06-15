@@ -1,5 +1,12 @@
 {
-    "take_name": "TestZED",
+    "take_name": "prova_giugno",
+    "depth_mode": "triangulation",
+    "webcam": {
+        "index": 1
+    },
+    "zed": {
+        "svo_codec": "LOSSLESS"
+    },
     "names": {
         "left_hand": "LeftHand",
         "right_hand": "RightHand",
@@ -11,6 +18,6 @@
         "target_fps": 60,
         "audio_sr": 44100,
         "audio_hop": 245,
-        "zed_fps": 30
+        "zed_fps": 60
     }
 }
