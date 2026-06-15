@@ -2,6 +2,7 @@
 *.svo2
 *.tak
 *.wav
+*.avi
 
 # Training data files
 out/train/

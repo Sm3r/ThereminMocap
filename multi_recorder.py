@@ -1,6 +1,7 @@
 import threading
 import time
 import wave
+import cv2
 import pyaudio
 import pyzed.sl as sl
 from mocap_tools.natnet.NatNetClient import NatNetClient
@@ -14,9 +15,10 @@ from config import config
 # ==========================
 # CONFIG
 # ==========================
-record_audio = True
+record_audio = False
 record_motion = True
 record_zed = True
+record_webcam = True
 DEBUG_DEVICES = True
 
 SAMPLE_WIDTH = 2
@@ -41,6 +43,7 @@ os.makedirs("data/takes", exist_ok=True)
 audio_filename = f"data/takes/{name}.wav"
 tak_filename = name
 output_svo_file = f"data/takes/{name}.svo"
+webcam_output = f"data/takes/{name}_webcam.avi"
 
 stop_event = threading.Event()
 
@@ -108,6 +111,15 @@ def audio_thread_fn():
 
 
 
+_SVO_CODECS = {
+    "H264": sl.SVO_COMPRESSION_MODE.H264,
+    "H265": sl.SVO_COMPRESSION_MODE.H265,
+    "LOSSLESS": sl.SVO_COMPRESSION_MODE.LOSSLESS,
+    "LOSSLESS_H264": sl.SVO_COMPRESSION_MODE.H264_LOSSLESS,
+    "LOSSLESS_H265": sl.SVO_COMPRESSION_MODE.H265_LOSSLESS,
+}
+
+
 # ==========================
 # ZED THREAD
 # ==========================
@@ -119,25 +131,27 @@ def zed_thread_fn(serial_number, output_file):
     init = sl.InitParameters()
     init.set_from_serial_number(serial_number)
     init.depth_mode = sl.DEPTH_MODE.NONE
-    init.camera_resolution = sl.RESOLUTION.HD720 # VGA
+    init.camera_resolution = sl.RESOLUTION.HD720
     init.camera_fps = config.rates.zed_fps
     init.async_image_retrieval = False
 
     status = cam.open(init)
-    if status != sl.ERROR_CODE.SUCCESS:
-        print(f"[ZED {serial_number}] Open failed:", status)
-        return
+    zed_ok = (status == sl.ERROR_CODE.SUCCESS)
+    if not zed_ok:
+        print(f"[ZED {serial_number}] Open failed: {status} — will not record")
+    else:
+        print(f"[ZED {serial_number}] Camera opened successfully")
 
-    recording_param = sl.RecordingParameters(
-        output_file,
-        sl.SVO_COMPRESSION_MODE.H264
-    )
+        codec = _SVO_CODECS.get(config.zed.svo_codec, sl.SVO_COMPRESSION_MODE.H264)
+        recording_param = sl.RecordingParameters(output_file, codec)
 
-    err = cam.enable_recording(recording_param)
-    if err != sl.ERROR_CODE.SUCCESS:
-        print(f"[ZED {serial_number}] Recording error:", err)
-        cam.close()
-        return
+        rec_err = cam.enable_recording(recording_param)
+        if rec_err != sl.ERROR_CODE.SUCCESS:
+            print(f"[ZED {serial_number}] Recording error ({rec_err}) — will not record")
+            cam.close()
+            zed_ok = False
+        else:
+            print(f"[ZED {serial_number}] Recording enabled (codec: {config.zed.svo_codec})")
 
     runtime = sl.RuntimeParameters()
 
@@ -146,7 +160,12 @@ def zed_thread_fn(serial_number, output_file):
         start_barrier.wait()
     except threading.BrokenBarrierError:
         print(f"[ZED {serial_number}] Barrier broken, aborting.")
-        cam.disable_recording()
+        if zed_ok:
+            cam.disable_recording()
+        cam.close()
+        return
+
+    if not zed_ok:
         cam.close()
         return
 
@@ -159,7 +178,52 @@ def zed_thread_fn(serial_number, output_file):
 
     cam.disable_recording()
     cam.close()
-    print(f"\n[ZED {serial_number}] Stopped")
+    print(f"\n[ZED {serial_number}] Stopped — {frames} frames recorded")
+
+# ==========================
+# WEBCAM THREAD
+# ==========================
+def webcam_thread_fn():
+    print("[WEBCAM] Initializing")
+    cap = cv2.VideoCapture(config.webcam.index, cv2.CAP_DSHOW)
+
+    # Read first frame to discover actual camera resolution
+    ret, frame = cap.read()
+    if not ret:
+        print("[WEBCAM] Failed to read first frame")
+        cap.release()
+        return
+    h, w = frame.shape[:2]
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps <= 0:
+        fps = 30.0
+    print(f"[WEBCAM] Camera provides {w}x{h} at {fps:.1f} fps")
+
+    fourcc = cv2.VideoWriter_fourcc(*'HFYU')
+    out = cv2.VideoWriter(webcam_output, fourcc, fps, (w, h))
+    # probe frame discarded — recording starts after sync
+
+    print("[WEBCAM] Ready, waiting for all streams…")
+    try:
+        start_barrier.wait()
+    except threading.BrokenBarrierError:
+        print("[WEBCAM] Barrier broken, aborting.")
+        cap.release()
+        out.release()
+        return
+
+    frames = 0
+    print("[WEBCAM] Recording")
+    while not stop_event.is_set():
+        ret, frame = cap.read()
+        if ret:
+            out.write(frame)
+            frames += 1
+
+    cap.release()
+    out.release()
+    print(f"\n[WEBCAM] Stopped — {frames} frames written")
+
 
 # ==========================
 # NATNET THREAD
@@ -230,6 +294,12 @@ if record_motion:
         daemon=True
     ))
 
+if record_webcam:
+    threads.append(threading.Thread(
+        target=webcam_thread_fn,
+        daemon=True
+    ))
+
 start_barrier = threading.Barrier(len(threads), timeout=45)
 
 for t in threads:
@@ -253,7 +323,22 @@ except KeyboardInterrupt:
 
 for t in threads:
     t.join()
-    
-time.sleep(1)
-shutil.move(os.path.join(os.path.expanduser("~"), "Documents", "OptiTrack", "Default", f"{tak_filename}.tak"), f"data/takes/{tak_filename}.tak")
+
+if record_motion:
+    tak_src = os.path.join(os.path.expanduser("~"), "Documents", "OptiTrack", "Default", f"{tak_filename}.tak")
+    tak_dst = f"data/takes/{tak_filename}.tak"
+
+    # Give Motive time to finish writing the file
+    for _ in range(20):
+        if os.path.exists(tak_src):
+            break
+        time.sleep(0.5)
+
+    if os.path.exists(tak_src):
+        shutil.move(tak_src, tak_dst)
+        print(f"[MOTION] .tak saved to {tak_dst}")
+    else:
+        print(f"[MOTION] WARNING: .tak not found at {tak_src}")
+        print(f"[MOTION] Check Motive → View → Data View → Recording for the save path")
+
 print("All recordings stopped cleanly.")
