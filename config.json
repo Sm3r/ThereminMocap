@@ -1,18 +1,26 @@
 {
-    "take_name": "train_volume",
+    "pitch_take_name": "train_pitch",
+    "volume_take_name": "train_volume",
     "depth_mode": "point_cloud",
+    "crow_port": "COM6",
     "webcam": {
         "index": 1
     },
-    "crow_port": "COM6",
     "zed": {
         "svo_codec": "LOSSLESS"
     },
-    "names": {
-        "left_hand": "left",
-        "right_hand": "right",
-        "pitch_antenna": "pitch",
-        "volume_antenna": "volume"
+    "mocap": {
+        "rigid_bodies": {
+            "zed_left": "zed_left",
+            "zed_right": "zed_right",
+            "webcam": "webcam",
+            "pitch": "pitch",
+            "volume": "volume"
+        },
+        "markersets": {
+            "left": "left",
+            "right": "right"
+        }
     },
     "rates": {
         "mocap_fps": 360,

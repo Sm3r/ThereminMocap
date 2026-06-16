@@ -2,11 +2,17 @@
 
 Motion capture theremin system using machine learning to map hand movements to theremin audio parameters.
 
-## Data
+## Input data
 
-Google Drive: https://drive.google.com/drive/folders/1FwwdydfsW5zwJmulHlqtQbMZtq1t1s7j?usp=share_link
+### Dataset recording setup
 
-Jupyter Notebook: https://colab.research.google.com/drive/1qxv-aSJIAnVRj09gXxxJ_weP0UZtmfzq?usp=sharing
+- MOCAP: 8 Optitrack cameras motion capture system
+- Stereo cameras: 2 ZED i2 cameras 
+- Single RGB camera: 2MP webcam
+- Thereming outputtting continuous voltage values for Pitch (V/Oct) and Volume
+
+### Training settings
+- 2 recordings one per [hand-antenna-pitch/volume value] using each input source defined above
 
 ## Project Structure
 
@@ -89,40 +95,42 @@ ThereminMocap/
     - Train the markerset
     - Go in to the labelling section and manually relabel the lost markers with the quick label tool.
     - Solve the rigid bodies.
-    - Export the take as a .tak file in the recordings folder.
+    - Save the solved take as a .tak file in the recordings folder.
 
-5. **Process mocap data**
+5. **Process data**
 
-    ```bash
-    python3 prepare_mocap.py
-    ```
-    This script will:
-    - Convert the tak file to CSV using the compiled file converter.
-    - Clean the CSV file removing unwanted columns.
-    - Parse the remaining bodies and markers from CSV file to classes.
-    - Export them and save in a .npy file
+    - **<u>Theremin:</u>**
+        ```bash
+        python3 prepare_audio.py
+        ```
+
+    - **<u>ZED:</u>**
+        ```bash
+        python3 prepare_zed.py
+        ```
+    
+    - **<u>Mocap:</u>**
+        ```bash
+        python3 prepare_mocap.py
+        ```
+        This script will:
+        - Convert the tak file to CSV using the compiled file converter.
+        - Clean the CSV file removing unwanted columns.
+        - Parse the remaining bodies and markers from CSV file to classes.
+        - Export them and save in a .npy file
     
   
 
-6. **Process audio data**
-   ```bash
-   python3 prepare_audio.py
-   ```
-    This script will:
-    - Load the recorded WAV audio file and split it in channels.
-    - Extract pitch and loudness features from the pitch of the audio channels.
-    - Save the features in a CSV and .npy file.
-
 ### Training
 
-7. **Train the neural network**:
+6. **Train the neural network**:
    ```bash
    python3 -m train.train
    ```
 
 ### Evaluation
 
-8. **Test the trained model**:
+7. **Test the trained model**:
    ```bash
    python3 evaluate.py
    ```

@@ -10,13 +10,6 @@ _VALID_DEPTH_MODES = ("point_cloud", "triangulation")
 class Config:
     default = "take1"
 
-    _DEFAULT_NAMES = {
-        'left_hand': 'LeftHand',
-        'right_hand': 'RightHand',
-        'pitch_antenna': 'pitch',
-        'volume_antenna': 'volume',
-    }
-
     _DEFAULT_RATES = {
         'mocap_fps': 120,
         'target_fps': 60,
@@ -33,11 +26,20 @@ class Config:
         'svo_codec': 'H264',
     }
 
+    _DEFAULT_MOCAP = {
+        'rigid_bodies': {},
+        'markersets': {},
+    }
+
     def __init__(self):
         self.depth_mode = "point_cloud"
         self.crow_port = None
         self.webcam = SimpleNamespace(**self._DEFAULT_WEBCAM)
         self.zed = SimpleNamespace(**self._DEFAULT_ZED)
+        self.mocap = SimpleNamespace(**self._DEFAULT_MOCAP)
+
+        self.pitch_take_name = self.default
+        self.volume_take_name = self.default
 
         project_root = os.path.dirname(os.path.abspath(__file__))
         self.config_file = os.path.join(project_root, "config.json")
@@ -45,9 +47,9 @@ class Config:
         if os.path.exists(self.config_file):
             with open(self.config_file, 'r') as f:
                 data = json.load(f)
-                self.take_name = data.get('take_name', self.default)
+                self.pitch_take_name = data.get('pitch_take_name', self.default)
+                self.volume_take_name = data.get('volume_take_name', self.default)
                 self.crow_port = data.get('crow_port', None)
-                self.names = SimpleNamespace(**(data.get('names', self._DEFAULT_NAMES)))
                 self.rates = SimpleNamespace(**(data.get('rates', self._DEFAULT_RATES)))
 
             depth_mode = data.get('depth_mode', 'point_cloud')
@@ -63,17 +65,73 @@ class Config:
 
             zed_data = data.get('zed', self._DEFAULT_ZED)
             self.zed = SimpleNamespace(**zed_data)
+
+            mocap_data = data.get('mocap', {})
+            self.mocap = SimpleNamespace(
+                rigid_bodies=SimpleNamespace(**(mocap_data.get('rigid_bodies', {}))),
+                markersets=SimpleNamespace(**(mocap_data.get('markersets', {}))),
+            )
         else:
-            self.take_name = self.default
+            self.pitch_take_name = self.default
+            self.volume_take_name = self.default
             self.crow_port = None
-            self.names = SimpleNamespace(**self._DEFAULT_NAMES)
+            self.names = SimpleNamespace()
             self.rates = SimpleNamespace(**self._DEFAULT_RATES)
 
+    def get_take_name(self, target: str) -> str:
+        if target == "pitch":
+            return self.pitch_take_name
+        elif target == "volume":
+            return self.volume_take_name
+        raise ValueError(f"Unknown target '{target}'. Must be 'pitch' or 'volume'.")
+
+    def get_mocap_rigid_body(self, target: str) -> str:
+        mapping = {"pitch": "pitch", "volume": "volume"}
+        key = mapping.get(target)
+        if key is None:
+            raise ValueError(f"Unknown target '{target}' for mocap rigid body.")
+        return getattr(self.mocap.rigid_bodies, key, key)
+
+    def get_mocap_camera(self, target: str) -> str:
+        mapping = {"pitch": "zed_right", "volume": "zed_left"}
+        key = mapping.get(target)
+        if key is None:
+            raise ValueError(f"Unknown target '{target}' for mocap camera.")
+        return getattr(self.mocap.rigid_bodies, key, key)
+
+    def get_mocap_webcam(self) -> str:
+        return getattr(self.mocap.rigid_bodies, "webcam", "Webcam")
+
+    def get_mocap_markerset(self, target: str) -> str:
+        mapping = {"pitch": "right", "volume": "left"}
+        key = mapping.get(target)
+        if key is None:
+            raise ValueError(f"Unknown target '{target}' for mocap markerset.")
+        return getattr(self.mocap.markersets, key, key)
+
+    # Alias for convenience
+    @property
+    def take_name(self):
+        return self.pitch_take_name
+
     def set_take_name(self, name):
-        self.take_name = name
+        self.pitch_take_name = name
+        self.volume_take_name = name
+        self._write_config()
+
+    def set_pitch_take_name(self, name):
+        self.pitch_take_name = name
+        self._write_config()
+
+    def set_volume_take_name(self, name):
+        self.volume_take_name = name
+        self._write_config()
+
+    def _write_config(self):
         with open(self.config_file, 'w') as f:
             json.dump({
-                'take_name': name,
+                'pitch_take_name': self.pitch_take_name,
+                'volume_take_name': self.volume_take_name,
                 'depth_mode': self.depth_mode,
                 'crow_port': self.crow_port,
                 'webcam': {
@@ -82,12 +140,29 @@ class Config:
                 'zed': {
                     'svo_codec': self.zed.svo_codec,
                 },
-                'names': {k: getattr(self.names, k) for k in self._DEFAULT_NAMES},
-                'rates': {k: getattr(self.rates, k) for k in self._DEFAULT_RATES},
-            }, f)
+                'mocap': {
+                    'rigid_bodies': {
+                        k: getattr(self.mocap.rigid_bodies, k)
+                        for k in ['zed_left', 'zed_right', 'webcam', 'pitch', 'volume']
+                        if hasattr(self.mocap.rigid_bodies, k)
+                    },
+                    'markersets': {
+                        k: getattr(self.mocap.markersets, k)
+                        for k in ['left', 'right']
+                        if hasattr(self.mocap.markersets, k)
+                    },
+                },
+                'rates': {
+                    k: getattr(self.rates, k)
+                    for k in self._DEFAULT_RATES
+                    if hasattr(self.rates, k)
+                },
+            }, f, indent=4)
 
-    def check_files_exist(self):
-        pattern = f"data/recordings/{self.take_name}.*"
+    def check_files_exist(self, take_name=None):
+        if take_name is None:
+            take_name = self.pitch_take_name
+        pattern = f"data/recordings/{take_name}.*"
         existing = glob.glob(pattern)
         return bool(existing)
 

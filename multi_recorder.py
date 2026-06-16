@@ -1,4 +1,7 @@
+import argparse
 import csv
+import os
+import sys
 import threading
 import time
 
@@ -6,45 +9,58 @@ import cv2
 import pyzed.sl as sl
 import serial
 
-from mocap_tools.natnet.NatNetClient import NatNetClient
-import sys
-import os
 from dotenv import load_dotenv
+import fnmatch
 import shutil
+
+from mocap_tools.natnet.NatNetClient import NatNetClient
 from config import config
 
-# ==========================
-# CONFIG
-# ==========================
-record_cv = True
-record_motion = True
-record_zed = True
-record_webcam = True
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--target", type=str, required=True,
+                    choices=["pitch", "volume"],
+                    help="Which target to record for")
+parser.add_argument("--take-name", type=str, default=None,
+                    help="Override take name (default: from config based on --target)")
+parser.add_argument("--no-cv", action="store_true", help="Skip Crow CV recording")
+parser.add_argument("--no-motion", action="store_true", help="Skip mocap recording")
+parser.add_argument("--no-zed", action="store_true", help="Skip ZED recording")
+parser.add_argument("--no-webcam", action="store_true", help="Skip webcam recording")
+args = parser.parse_args()
+
+record_cv = not args.no_cv
+record_motion = not args.no_motion
+record_zed = not args.no_zed
+record_webcam = not args.no_webcam
 
 load_dotenv()
 
+take_name = args.take_name or config.get_take_name(args.target)
+os.makedirs("data/recordings", exist_ok=True)
+
+cv_filename = f"data/recordings/{take_name}_cv.csv"
+tak_filename = take_name
+output_svo_file = f"data/recordings/{take_name}_cam1.svo"
+webcam_output = f"data/recordings/{take_name}_webcam.avi"
+
 # Prevent overwriting
-if config.check_files_exist():
-    print("[ERROR] Cannot start recording - files would be overwritten.")
+if config.check_files_exist(take_name):
+    print(f"[ERROR] Cannot start recording - files would be overwritten for '{take_name}'.")
     sys.exit(1)
 
-name = config.take_name
-os.makedirs("data/recordings", exist_ok=True)
-cv_filename = f"data/recordings/{name}_cv.csv"
-tak_filename = name
-output_svo_file = f"data/recordings/{name}.svo"
-webcam_output = f"data/recordings/{name}_webcam.avi"
-
 stop_event = threading.Event()
+
 
 # ==========================
 # CV THREAD (Crow module)
 # ==========================
-
 def cv_thread_fn():
     print("[CV] Initializing")
     port = config.crow_port
+    if not port:
+        print("[CV] No crow_port set in config, skipping CV recording")
+        return
 
     ser = serial.Serial(port, 115200, timeout=1)
     time.sleep(0.5)
@@ -93,7 +109,6 @@ def cv_thread_fn():
     print("[CV] Stopped")
 
 
-
 _SVO_CODECS = {
     "H264": sl.SVO_COMPRESSION_MODE.H264,
     "H265": sl.SVO_COMPRESSION_MODE.H265,
@@ -104,7 +119,7 @@ _SVO_CODECS = {
 
 
 # ==========================
-# ZED THREAD
+# ZED THREAD (single camera)
 # ==========================
 def zed_thread_fn(serial_number, output_file):
     print(f"[ZED {serial_number}] Initializing")
@@ -163,6 +178,7 @@ def zed_thread_fn(serial_number, output_file):
     cam.close()
     print(f"\n[ZED {serial_number}] Stopped — {frames} frames recorded")
 
+
 # ==========================
 # WEBCAM THREAD
 # ==========================
@@ -170,7 +186,6 @@ def webcam_thread_fn():
     print("[WEBCAM] Initializing")
     cap = cv2.VideoCapture(config.webcam.index, cv2.CAP_MSMF)
 
-    # Read first frame to discover actual camera resolution
     ret, frame = cap.read()
     if not ret:
         print("[WEBCAM] Failed to read first frame")
@@ -184,7 +199,6 @@ def webcam_thread_fn():
 
     fourcc = cv2.VideoWriter_fourcc(*'HFYU')
     out = cv2.VideoWriter(webcam_output, fourcc, fps, (w, h))
-    # probe frame discarded — recording starts after sync
 
     print("[WEBCAM] Ready, waiting for all streams…")
     try:
@@ -244,45 +258,28 @@ def natnet_thread_fn():
     client.shutdown()
     print("[MOTION] NatNet thread stopped")
 
+
 # ==========================
 # MAIN
 # ==========================
-
 threads = []
 
 if record_cv:
-    threads.append(threading.Thread(
-        target=cv_thread_fn,
-        daemon=True
-    ))
+    threads.append(threading.Thread(target=cv_thread_fn, daemon=True))
 
 if record_zed:
     serial_1 = int(os.getenv("ZED_SERIAL_1"))
-    serial_2 = int(os.getenv("ZED_SERIAL_2"))
-
     threads.append(threading.Thread(
         target=zed_thread_fn,
-        args=(serial_1, f"data/recordings/{name}_cam1.svo"),
-        daemon=True
-    ))
-
-    threads.append(threading.Thread(
-        target=zed_thread_fn,
-        args=(serial_2, f"data/recordings/{name}_cam2.svo"),
+        args=(serial_1, output_svo_file),
         daemon=True
     ))
 
 if record_motion:
-    threads.append(threading.Thread(
-        target=natnet_thread_fn,
-        daemon=True
-    ))
+    threads.append(threading.Thread(target=natnet_thread_fn, daemon=True))
 
 if record_webcam:
-    threads.append(threading.Thread(
-        target=webcam_thread_fn,
-        daemon=True
-    ))
+    threads.append(threading.Thread(target=webcam_thread_fn, daemon=True))
 
 start_barrier = threading.Barrier(len(threads), timeout=45)
 
@@ -295,7 +292,6 @@ try:
 except KeyboardInterrupt:
     print("Stopping…")
     stop_event.set()
-    # Reset the barrier so waiting threads can proceed to exit
     if start_barrier.broken:
         start_barrier.reset()
     else:
@@ -304,7 +300,6 @@ except KeyboardInterrupt:
         except ValueError:
             pass
 
-
 try:
     for t in threads:
         t.join(timeout=5)
@@ -312,9 +307,7 @@ except KeyboardInterrupt:
     pass
 
 if record_motion:
-    import fnmatch
     tak_dst = f"data/recordings/{tak_filename}.tak"
-
     search_root = os.path.join(os.path.expanduser("~"), "Documents", "OptiTrack")
     pattern = f"{tak_filename}_*.tak"
     tak_src = None
@@ -337,6 +330,5 @@ if record_motion:
         print(f"[MOTION] .tak saved to {tak_dst} ({size_mb:.1f} MB)")
     else:
         print(f"[MOTION] WARNING: .tak matching '{pattern}' not found under {search_root}")
-        print(f"[MOTION] Check Motive → View → Data View → Recording for the save path")
 
 print("All recordings stopped cleanly.")
