@@ -1,8 +1,15 @@
-# Large data files
-*.svo2
-*.tak
-*.wav
-*.avi
+# Recording data files
+data/takes/*
+
+# Python cache
+__pycache__/
+
+# Mac files
+.DS_Store
+
+# Env Venv
+venv/
+.env
 
 # Training data files
 out/train/
@@ -10,9 +17,3 @@ out/test/
 
 # Training outputs
 wandb/
-
-.DS_Store
-__pycache__/
-.venv/
-venv/
-.env

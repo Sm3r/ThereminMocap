@@ -42,7 +42,7 @@ if __name__ == "__main__":
     cam_prep = {}
     for path in raw_files:
         base = os.path.splitext(os.path.basename(path))[0]
-        if base.endswith("_world") or base.endswith("_preprocessed"):
+        if base.endswith("_preprocessed"):
             continue
         m = re.search(r"_cam(\d+)$", base)
         if not m:

@@ -77,12 +77,14 @@ else:
 print("\nPreprocessing CSVs ...")
 for csv_path in sorted(glob.glob(os.path.join(data_dir, f"{take_name}_cam*.csv"))):
     base, _ = os.path.splitext(csv_path)
-    if base.endswith("_world") or base.endswith("_preprocessed"):
+    if base.endswith("_preprocessed"):
         continue
     print(f"  {os.path.basename(csv_path)}:")
-    fix_hand_labels(csv_path)
-    drop_minority_hand(csv_path)
-    preprocess_csv(csv_path)
+    df = pd.read_csv(csv_path)
+    df = fix_hand_labels(df)
+    #df = drop_minority_hand(df)
+    df = preprocess_csv(df)
+    # df.to_csv(f"{base}_preprocessed{ext}", index=False)
 
 
 print("\nExtracting hand data to npy files ...")
@@ -103,7 +105,7 @@ else:
 print("\n=== Detection Summary ===")
 for csv_path in sorted(glob.glob(os.path.join(data_dir, f"{take_name}_cam*.csv"))):
     base, _ = os.path.splitext(csv_path)
-    if base.endswith("_world") or base.endswith("_preprocessed"):
+    if base.endswith("_preprocessed"):
         continue
     df = pd.read_csv(csv_path)
     total = len(df)

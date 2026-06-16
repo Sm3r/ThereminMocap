@@ -24,9 +24,8 @@ def _create_spike_mask(df: pd.DataFrame, columns: list[str],
     return mask
 
 
-def fix_hand_labels(csv_path: str, window: int = 30, min_votes: int = 10, swap_ratio: float = 2.0) -> str:
-    print(f"  Correcting hand swaps in {os.path.basename(csv_path)} ...")
-    df = pd.read_csv(csv_path)
+def fix_hand_labels(df: pd.DataFrame, window: int = 30, min_votes: int = 5, swap_ratio: float = 1.0) -> pd.DataFrame:
+    df = df.copy()
 
     left_x = df["left_00_X"].values
     left_y = df["left_00_Y"].values
@@ -92,11 +91,10 @@ def fix_hand_labels(csv_path: str, window: int = 30, min_votes: int = 10, swap_r
 
         print(f"    Swapped {n_swaps}/{len(df)} frames ({n_swaps / len(df) * 100:.1f}%)")
 
-    df.to_csv(csv_path, index=False)
-    return csv_path
+    return df
 
 
-def drop_minority_hand(csv_path: str, min_ratio: float = 3.0) -> str:
+def drop_minority_hand(df: pd.DataFrame, min_ratio: float = 3.0) -> pd.DataFrame:
     """Drop frames where the minority hand is detected.
 
     Each frame records `left_2d_detected` / `right_2d_detected`.
@@ -105,25 +103,23 @@ def drop_minority_hand(csv_path: str, min_ratio: float = 3.0) -> str:
 
     Parameters
     ----------
-    csv_path : str — path to CSV (modified in-place)
+    df : pd.DataFrame — input data
     min_ratio : float — minimum majority/minority ratio to apply dropping
 
     Returns
     -------
-    str — path to the modified CSV
+    pd.DataFrame — filtered DataFrame
     """
-    df = pd.read_csv(csv_path)
-
     has_left = "left_2d_detected" in df.columns
     has_right = "right_2d_detected" in df.columns
     if not has_left and not has_right:
-        return csv_path
+        return df
     left_count = df["left_2d_detected"].sum() if has_left else 0
     right_count = df["right_2d_detected"].sum() if has_right else 0
 
     if left_count == 0 and right_count == 0:
         print(f"    No hand detections found, skipping")
-        return csv_path
+        return df
 
     if left_count > right_count:
         majority_hand = "left"
@@ -138,20 +134,18 @@ def drop_minority_hand(csv_path: str, min_ratio: float = 3.0) -> str:
 
     if ratio < min_ratio:
         print(f"    Ratio {ratio:.1f} < {min_ratio}, skipping drop")
-        return csv_path
+        return df
 
     keep = df[f"{majority_hand}_2d_detected"].astype(bool)
     n_before = len(df)
     df = df[keep].reset_index(drop=True)
     n_dropped = n_before - len(df)
     print(f"    Dropped {n_dropped}/{n_before} frames")
-    df.to_csv(csv_path, index=False)
-    return csv_path
+    return df
 
 
-def preprocess_csv(csv_path: str, window: int = 128, threshold: float = 8.0) -> str:
-    print(f"  Cleaning {os.path.basename(csv_path)} ...")
-    df = pd.read_csv(csv_path)
+def preprocess_csv(df: pd.DataFrame, window: int = 128, threshold: float = 8.0) -> pd.DataFrame:
+    df = df.copy()
     hand_cols = []
 
     for hand in ("left", "right"):
@@ -175,10 +169,7 @@ def preprocess_csv(csv_path: str, window: int = 128, threshold: float = 8.0) -> 
                 continue
             df.loc[mask[col], col] = np.nan
 
-    base, ext = os.path.splitext(csv_path)
-    out_path = f"{base}_preprocessed{ext}"
-    df.to_csv(out_path, index=False)
-    return out_path
+    return df
 
 
 if __name__ == "__main__":
@@ -195,5 +186,12 @@ if __name__ == "__main__":
 
     print(f"Preprocessing {len(csv_files)} CSV(s) for take '{take_name}' ...\n")
     for csv_path in csv_files:
-        out_path = preprocess_csv(csv_path)
-        fix_hand_labels(out_path)
+        base, ext = os.path.splitext(csv_path)
+        print(f"  Cleaning {os.path.basename(csv_path)} ...")
+        df = pd.read_csv(csv_path)
+        df = preprocess_csv(df)
+        out_path = f"{base}_preprocessed{ext}"
+        df.to_csv(out_path, index=False)
+        print(f"    Saved to {os.path.basename(out_path)}")
+        df = fix_hand_labels(pd.read_csv(out_path))
+        df.to_csv(out_path, index=False)
