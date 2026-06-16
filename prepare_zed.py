@@ -2,13 +2,14 @@ import argparse
 import glob
 import os
 import sys
+import threading
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 import numpy as np
 import pandas as pd
 
 from hand_tracking_ZED6D.capture import capture_to_csv
-from preprocessing import preprocess_csv, fix_hand_labels
+from preprocessing import preprocess_csv, fix_hand_labels, drop_minority_hand
 from config import config
 
 
@@ -36,13 +37,21 @@ for svo in svo_files:
 
 if need_process:
     print(f"Processing {len(need_process)} camera(s) in parallel ...\n")
+    stop_event = threading.Event()
     with ThreadPoolExecutor(max_workers=len(need_process)) as pool:
         fut_to_svo = {
-            pool.submit(capture_to_csv, filename=svo, show_windows=False): svo
+            pool.submit(
+                capture_to_csv,
+                filename=svo,
+                show_windows=True,
+                fps=config.rates.zed_fps,
+                use_triangulation=(config.depth_mode == "triangulation"),
+                stop_event=stop_event,
+            ): svo
             for svo in need_process
         }
         try:
-            while fut_to_svo:
+            while fut_to_svo and not stop_event.is_set():
                 done, _ = wait(fut_to_svo, timeout=0.5, return_when=FIRST_COMPLETED)
                 if not done:
                     continue
@@ -54,9 +63,14 @@ if need_process:
                     except Exception as e:
                         print(f"  Failed: {svo} — {e}", file=sys.stderr)
         except KeyboardInterrupt:
-            print("\nInterrupted, cancelling remaining tasks ...")
+            print("\nInterrupted, signalling all tasks to stop ...")
+            stop_event.set()
+            # Still collect results from tasks that finish before exit
             for f in fut_to_svo:
-                f.cancel()
+                try:
+                    f.result(timeout=2)
+                except Exception:
+                    pass
 else:
     print("All CSVs are up to date.")
 
@@ -65,8 +79,10 @@ for csv_path in sorted(glob.glob(os.path.join(data_dir, f"{take_name}_cam*.csv")
     base, _ = os.path.splitext(csv_path)
     if base.endswith("_world") or base.endswith("_preprocessed"):
         continue
-    out = preprocess_csv(csv_path)
-    fix_hand_labels(out)
+    print(f"  {os.path.basename(csv_path)}:")
+    fix_hand_labels(csv_path)
+    drop_minority_hand(csv_path)
+    preprocess_csv(csv_path)
 
 
 print("\nExtracting hand data to npy files ...")
@@ -83,4 +99,29 @@ if os.path.exists(cam1_csv):
     print(f"  Saved right hand: {right_data.shape}")
 else:
     print(f"  Skipping — {os.path.basename(cam1_csv)} not found")
+
+print("\n=== Detection Summary ===")
+for csv_path in sorted(glob.glob(os.path.join(data_dir, f"{take_name}_cam*.csv"))):
+    base, _ = os.path.splitext(csv_path)
+    if base.endswith("_world") or base.endswith("_preprocessed"):
+        continue
+    df = pd.read_csv(csv_path)
+    total = len(df)
+
+    has_2d_cols = 'left_2d_detected' in df.columns and 'right_2d_detected' in df.columns
+
+    landmark_cols = sorted(c for c in df.columns
+                           if (c.startswith("left_") or c.startswith("right_"))
+                           and "_detected" not in c)
+    depth_valid = df[landmark_cols].notna().any(axis=1).sum() if landmark_cols else 0
+
+    basename = os.path.basename(csv_path)
+    pct_depth = f"{depth_valid / total * 100:5.1f}%" if total else "N/A"
+    print(f"  {basename}:")
+    print(f"    Total frames:            {total}")
+    if has_2d_cols:
+        mp_detected = df[['left_2d_detected', 'right_2d_detected']].any(axis=1).sum()
+        pct_mp = f"{mp_detected / total * 100:5.1f}%" if total else "N/A"
+        print(f"    MediaPipe 2D detected:   {mp_detected:>6} / {total} ({pct_mp})")
+    print(f"    Wrist depth valid:       {depth_valid:>6} / {total} ({pct_depth})")
 

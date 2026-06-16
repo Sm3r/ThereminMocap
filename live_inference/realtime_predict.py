@@ -19,6 +19,7 @@ if PROJECT_ROOT not in sys.path:
 from hand_tracking_ZED6D.tracking import HandTracking
 from hand_tracking_ZED6D.zed import Zed
 from train.network import HandNet
+from config import config
 
 dotenv_path = os.path.join(PROJECT_ROOT, ".env")
 load_dotenv(dotenv_path)
@@ -80,10 +81,31 @@ def _detect_one_frame(cam: Zed, detector: HandTracking) -> tuple:
     return _flatten_hand(right_data), _flatten_hand(left_data), det_img
 
 
+def _detect_one_frame_triangulation(cam: Zed, detector: HandTracking,
+                                     right_detector: HandTracking | None = None) -> tuple:
+    """Grab + stereo detect + triangulate — returns (right_feat, left_feat, img).
+
+    Delegates to :meth:`HandTracking.detect_stereo`.
+    """
+    if right_detector is None:
+        right_detector = detector
+
+    result = detector.detect_stereo(cam, right_detector)
+    if not result["success"]:
+        return None, None, None
+
+    det_img = detector.findHands(result["img_left"])
+
+    return (_flatten_hand(result["right_data"]),
+            _flatten_hand(result["left_data"]),
+            det_img)
+
+
 def _inference_thread(cam: Zed, detector: HandTracking, model: HandNet,
                       centroid_3d: np.ndarray, hand_label: str,
                       window_name: str, osc_path: str, device: torch.device,
-                      running: threading.Event):
+                      running: threading.Event,
+                      detect_fn=_detect_one_frame):
     """Full pipeline: grab → detect → center → buffer → infer → OSC → draw."""
     origin_offset = np.tile(centroid_3d, 21)
     buf = deque(maxlen=3)
@@ -96,20 +118,8 @@ def _inference_thread(cam: Zed, detector: HandTracking, model: HandNet,
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
 
     while running.is_set():
-        err = cam.zed.grab(cam.runtime_parameters)
-        if err != sl.ERROR_CODE.SUCCESS:
-            continue
-
-        cam.get_image()
-        img = cam.img.copy()
-        if img.ndim == 3 and img.shape[2] == 4:
-            img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-        pcl = cam.point_cloud
-
-        det_img = detector.findHands(img)
-        left_data, right_data = detector.findpostion(det_img, pcl, cam.camera_params)
-
-        hand_data = extract(right_data, left_data)
+        right_feat, left_feat, det_img = detect_fn(cam, detector)
+        hand_data = extract(right_feat, left_feat)
         if hand_data is not None and hand_data.shape == (21, 3):
             feat = hand_data.flatten().astype(np.float64)
             if not np.any(np.isnan(feat)):
@@ -159,9 +169,9 @@ def main():
     serial_2 = int(os.getenv("ZED_SERIAL_2"))
 
     print(f"\nOpening ZED camera 1 (serial: {serial_1}) ...")
-    cam0 = Zed(None, camera_serial=serial_1)
+    cam0 = Zed(None, camera_serial=serial_1, fps=config.rates.zed_fps)
     print(f"Opening ZED camera 2 (serial: {serial_2}) ...")
-    cam1 = Zed(None, camera_serial=serial_2)
+    cam1 = Zed(None, camera_serial=serial_2, fps=config.rates.zed_fps)
     cams = [cam0, cam1]
 
     detectors = [
@@ -169,6 +179,24 @@ def main():
                      complexity=0, draw=False)
         for _ in range(2)
     ]
+
+    use_triangulation = config.depth_mode == "triangulation"
+    if use_triangulation:
+        left_detectors = [
+            HandTracking(maxHands=1, detectionCon=0.2, trackCon=0.8,
+                         complexity=0, draw=False)
+            for _ in range(2)
+        ]
+        right_detectors = [
+            HandTracking(maxHands=1, detectionCon=0.2, trackCon=0.8,
+                         complexity=0, draw=False)
+            for _ in range(2)
+        ]
+    else:
+        left_detectors = None
+        right_detectors = None
+
+    detect_fn = _detect_one_frame_triangulation if use_triangulation else _detect_one_frame
 
     # ---- Auto-detect hand → camera mapping --------------------------------------
     cam_hand = [None, None]
@@ -181,7 +209,7 @@ def main():
         for i, (cam, det) in enumerate(zip(cams, detectors)):
             if cam_hand[i] is not None:
                 continue
-            right_feat, left_feat, _ = _detect_one_frame(cam, det)
+            right_feat, left_feat, _ = detect_fn(cam, det)
             if right_feat is not None:
                 cam_hand[i] = "right"
                 print(f"  ✓ Camera {i} (serial {[serial_1, serial_2][i]}) → right hand")
@@ -228,7 +256,7 @@ def main():
         volume_raw = None
 
         for i in range(2):
-            right_feat, left_feat, _ = _detect_one_frame(cams[i], detectors[i])
+            right_feat, left_feat, _ = detect_fn(cams[i], detectors[i])
             if i == pitch_cam_idx and right_feat is not None:
                 pitch_raw = right_feat
             if i == volume_cam_idx and left_feat is not None:
@@ -269,22 +297,36 @@ def main():
 
     threads = []
 
+    # For triangulation mode, wire separate left/right detectors per camera
+    if use_triangulation:
+        pitch_detect_fn = lambda cam, det: _detect_one_frame_triangulation(
+            cam, det, right_detectors[pitch_cam_idx])
+        volume_detect_fn = lambda cam, det: _detect_one_frame_triangulation(
+            cam, det, right_detectors[volume_cam_idx])
+        pitch_detector = left_detectors[pitch_cam_idx]
+        volume_detector = left_detectors[volume_cam_idx]
+    else:
+        pitch_detect_fn = detect_fn
+        volume_detect_fn = detect_fn
+        pitch_detector = detectors[pitch_cam_idx]
+        volume_detector = detectors[volume_cam_idx]
+
     t = threading.Thread(
         target=_inference_thread,
-        args=(cams[pitch_cam_idx], detectors[pitch_cam_idx], pitch_model,
+        args=(cams[pitch_cam_idx], pitch_detector, pitch_model,
               pitch_centroid_3d, "right",
               "Pitch Camera (right hand — press Q to quit)", "/pitch",
-              device, running),
+              device, running, pitch_detect_fn),
     )
     t.start()
     threads.append(t)
 
     t = threading.Thread(
         target=_inference_thread,
-        args=(cams[volume_cam_idx], detectors[volume_cam_idx], volume_model,
+        args=(cams[volume_cam_idx], volume_detector, volume_model,
               volume_centroid_3d, "left",
               "Volume Camera (left hand — press Q to quit)", "/volume",
-              device, running),
+              device, running, volume_detect_fn),
     )
     t.start()
     threads.append(t)

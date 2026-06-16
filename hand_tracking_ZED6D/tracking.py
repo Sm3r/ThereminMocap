@@ -4,6 +4,8 @@ import mediapipe as mp
 import numpy as np
 import pyzed.sl as sl
 
+from .triangulation import stereo_detect as _stereo_detect
+
 
 class HandTracking():
     def __init__(self, maxHands=2, detectionCon=0.4, trackCon=0.8, complexity=1, draw=True):
@@ -91,7 +93,52 @@ class HandTracking():
         self.stdout_hand_detection(left_data, right_data)
 
         return left_data, right_data
-    
+
+    def detect_stereo(self, cam, right_tracker=None):
+        """Grab a ZED frame, detect 2D landmarks in both views, triangulate 3D hands.
+
+        Parameters
+        ----------
+        cam : Zed
+        right_tracker : HandTracking or None
+            Separate tracker for the right image. When None, uses ``self`` for both.
+
+        Returns
+        -------
+        dict with keys:
+            success : bool
+            left_data : ndarray (21, 3) or empty
+            right_data : ndarray (21, 3) or empty
+            mp_left_detected : bool
+            mp_right_detected : bool
+            img_left : ndarray (H, W, 3) BGR or None
+        """
+        if right_tracker is None:
+            right_tracker = self
+
+        err = cam.zed.grab(cam.runtime_parameters)
+        if err != sl.ERROR_CODE.SUCCESS:
+            return {"success": False}
+
+        cam.get_image()
+
+        img_left = cam.img.copy()
+        if img_left.ndim == 3 and img_left.shape[2] == 4:
+            img_left = cv2.cvtColor(img_left, cv2.COLOR_BGRA2BGR)
+
+        img_right = cam.img_right.copy()
+        if img_right.ndim == 3 and img_right.shape[2] == 4:
+            img_right = cv2.cvtColor(img_right, cv2.COLOR_BGRA2BGR)
+
+        result = _stereo_detect(
+            self.hands, right_tracker.hands,
+            img_left, img_right,
+            cam.cam_left, cam.cam_right, cam.stereo_transform,
+        )
+        result["success"] = True
+        result["img_left"] = img_left
+        return result
+
     def calculate_orientation(self,hand_landmarks_3d):
         if hand_landmarks_3d.shape != (21,3):
             zero_array = np.zeros((3,))

@@ -6,7 +6,9 @@ import numpy as np
 import pandas as pd
 
 from .tracking import HandTracking
+from .triangulation import stereo_detect
 from .zed import Zed
+from config import config
 import pyzed.sl as sl
 
 
@@ -16,10 +18,14 @@ def _initialize_name_dict():
         for i in range(21):
             for axis in ['X', 'Y', 'Z']:
                 name_dict[f"{hand}_{i:02d}_{axis}"] = []
+    name_dict['left_2d_detected'] = []
+    name_dict['right_2d_detected'] = []
     return name_dict
 
 
-def capture_to_csv(filename=None, output_csv=None, window_title='Image', timestamped=False, show_windows=False, print_fps=False):
+def capture_to_csv(filename=None, output_csv=None, window_title='Image',
+                   timestamped=False, show_windows=False, print_fps=False,
+                   fps=None, use_triangulation=None, stop_event=None):
     """Capture hand keypoints from a ZED camera or SVO and save to CSV.
 
     - `filename`: path to SVO file. If None, uses live camera.
@@ -28,15 +34,21 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
     - `timestamped`: when True and no explicit `output_csv` is given, create a timestamped live filename.
     - `show_windows`: when False, disable OpenCV windows and landmark drawing to improve FPS.
     - `print_fps`: when True and `show_windows` is False, print per-camera FPS to the terminal.
+    - `use_triangulation`: when True, use stereo triangulation instead of ZED point cloud.
+      Defaults to (config.depth_mode == "triangulation") when not passed.
+    - `stop_event`: shared threading.Event for coordinated cancellation across threads.
+      When set, the frame loop exits at the next iteration.
     """
+    if use_triangulation is None:
+        use_triangulation = (config.depth_mode == "triangulation")
 
     os.makedirs('data/dataframes', exist_ok=True)
 
-    detector = HandTracking(maxHands=2, detectionCon=0.2, trackCon=0.8, complexity=1, draw=show_windows)
+    detector = HandTracking(maxHands=1, detectionCon=0.2, trackCon=0.8, complexity=1, draw=show_windows)
 
     # If using SVO file, keep existing single-stream behavior
     if filename:
-        cam = Zed(filename)
+        cam = Zed(filename, fps=fps)
         cam.print_information()
         try:
             final_frame = cam.zed.get_svo_number_of_frames()
@@ -49,16 +61,14 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
         # Live mode: detect number of connected ZED cameras and use up to 2
         live_mode = True
         zed_list = []
-        # Try opening camera indices 0 and 1; stop after successfully opening two
+
         for cam_index in (0, 1):
             try:
-                cam_instance = Zed(None)
-                # Zed class currently doesn't accept index; assume device selection is handled by SDK defaults
+                cam_instance = Zed(None, fps=fps)
                 zed_list.append(cam_instance)
                 if len(zed_list) >= 2:
                     break
             except Exception:
-                # failed to open a camera at this index; continue
                 continue
 
         if len(zed_list) == 0:
@@ -78,9 +88,17 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
 
     # create per-camera detectors so FPS and detection are tracked per stream
     if live_mode:
-        detectors = [HandTracking(maxHands=2, detectionCon=0.2, trackCon=0.8, complexity=1, draw=show_windows) for _ in zed_list]
+        detectors = [HandTracking(maxHands=1, detectionCon=0.2, trackCon=0.8, complexity=1, draw=show_windows) for _ in zed_list]
     else:
         detectors = [detector]
+
+    # Separate detectors per stereo view for triangulation
+    if use_triangulation:
+        left_detectors = [HandTracking(maxHands=1, detectionCon=0.2, trackCon=0.8, complexity=1, draw=False) for _ in zed_list]
+        right_detectors = [HandTracking(maxHands=1, detectionCon=0.2, trackCon=0.8, complexity=1, draw=False) for _ in zed_list]
+    else:
+        left_detectors = None
+        right_detectors = None
 
     frame = 0
     first_print = True
@@ -114,23 +132,73 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
         camera_params = camera_params_list[idx]
         data_left, data_right = detectors[idx].findpostion(img, pcl, camera_params)
 
+        # Determine MediaPipe 2D detection status (independent of depth success)
+        mp_left = False
+        mp_right = False
+        if detectors[idx].results and detectors[idx].results.multi_hand_landmarks:
+            for i, _ in enumerate(detectors[idx].results.multi_hand_landmarks):
+                handedness = detectors[idx].results.multi_handedness[i].classification[0].index
+                if handedness == 1:
+                    mp_left = True
+                else:
+                    mp_right = True
+
         entry = {
             'img': img_processed,
             'left_data': data_left,
             'right_data': data_right,
+            'mp_left_detected': mp_left,
+            'mp_right_detected': mp_right,
+        }
+        fps_value = detectors[idx].get_fps() if (not show_windows and print_fps) else None
+        return {"idx": idx, "success": True, "entry": entry, "fps": fps_value}
+
+    def _process_camera_triangulation(idx, active_cam):
+        err = active_cam.zed.grab(active_cam.runtime_parameters)
+        if err != sl.ERROR_CODE.SUCCESS:
+            return {"idx": idx, "success": False}
+
+        active_cam.get_image()
+
+        img_left = active_cam.img.copy()
+        if img_left.ndim == 3 and img_left.shape[2] == 4:
+            img_left = cv2.cvtColor(img_left, cv2.COLOR_BGRA2BGR)
+
+        img_right = active_cam.img_right.copy()
+        if img_right.ndim == 3 and img_right.shape[2] == 4:
+            img_right = cv2.cvtColor(img_right, cv2.COLOR_BGRA2BGR)
+
+        result = stereo_detect(
+            left_detectors[idx].hands, right_detectors[idx].hands,
+            img_left, img_right,
+            active_cam.cam_left, active_cam.cam_right,
+            active_cam.stereo_transform,
+        )
+
+        if show_windows:
+            detectors[idx].findHands(img_left)
+
+        entry = {
+            'img': img_left if show_windows else None,
+            'left_data': result["left_data"],
+            'right_data': result["right_data"],
+            'mp_left_detected': result["mp_left_detected"],
+            'mp_right_detected': result["mp_right_detected"],
         }
         fps_value = detectors[idx].get_fps() if (not show_windows and print_fps) else None
         return {"idx": idx, "success": True, "entry": entry, "fps": fps_value}
 
     interrupted = False
     try:
-        while frame <= final_frame:
+        while frame <= final_frame and not stop_event.is_set():
             any_success = False
             per_cam = [None] * num_cams
 
+            process_fn = _process_camera_triangulation if use_triangulation else _process_camera
+
             # grab/process each camera once per frame
             if use_parallel:
-                futures = [executor.submit(_process_camera, idx, cam) for idx, cam in enumerate(zed_list)]
+                futures = [executor.submit(process_fn, idx, cam) for idx, cam in enumerate(zed_list)]
                 for fut in futures:
                     result = fut.result()
                     if not result.get("success"):
@@ -142,37 +210,19 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
                         fps_values[idx] = result["fps"]
             else:
                 for idx, active_cam in enumerate(zed_list):
-                    err = active_cam.zed.grab(active_cam.runtime_parameters)
-                    if err != sl.ERROR_CODE.SUCCESS:
+                    result = process_fn(idx, active_cam)
+                    if not result.get("success"):
                         continue
                     any_success = True
-                    active_cam.get_image()
-                    img = active_cam.img.copy()
-                    if img.ndim == 3 and img.shape[2] == 4:
-                        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
-                    depth_img = active_cam.depth_img
-                    pcl = active_cam.point_cloud
-
-                    if show_windows:
-                        img_processed = detectors[idx].findHands(img)
-                    else:
-                        detectors[idx].findHands(img)
-                        img_processed = None
-                    camera_params = camera_params_list[idx]
-                    data_left, data_right = detectors[idx].findpostion(img, pcl, camera_params)
-
-                    per_cam[idx] = {
-                        'img': img_processed,
-                        'left_data': data_left,
-                        'right_data': data_right,
-                    }
+                    entry = result["entry"]
+                    per_cam[idx] = entry
 
                     if show_windows:
                         # overlay FPS for this camera stream
-                        img_processed = detectors[idx].displayFPS(img_processed)
+                        img_processed = detectors[idx].displayFPS(entry['img'])
                         cv2.imshow(f"{window_title}_{idx}", img_processed)
                     elif print_fps:
-                        fps_values[idx] = detectors[idx].get_fps()
+                        fps_values[idx] = result.get("fps")
 
             if not any_success:
                 break
@@ -209,6 +259,9 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
                         else:
                             row[col] = np.nan
 
+                row['left_2d_detected'] = int(entry.get('mp_left_detected', False))
+                row['right_2d_detected'] = int(entry.get('mp_right_detected', False))
+
             rows.append(row)
 
             if show_windows:
@@ -235,6 +288,7 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image', timesta
                 print("\r" + " | ".join(fps_parts).ljust(60), end="", flush=True)
     except KeyboardInterrupt:
         interrupted = True
+        stop_event.set()
 
     if interrupted and print_fps:
         print("", flush=True)

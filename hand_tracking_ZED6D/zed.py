@@ -1,7 +1,10 @@
+import numpy as np
 import pyzed.sl as sl
 
+
 class Zed():
-    def __init__(self, filename=None, depth_confidence=100, camera_serial=None):
+    def __init__(self, filename=None, depth_confidence=100, camera_serial=None,
+                 fps=None):
 
         print("Bringing Up ZED CAMERA Information...")
         # Decide if SVO or Live
@@ -31,9 +34,9 @@ class Zed():
         else:
             # Live preview – prioritise FPS
             self.init_params.camera_resolution = sl.RESOLUTION.VGA
-            self.init_params.camera_fps = 60
+            self.init_params.camera_fps = fps if fps is not None else 60
             self.init_params.depth_mode = sl.DEPTH_MODE.NEURAL_LIGHT
-            
+
             confidence = depth_confidence
 
         self.init_params.depth_minimum_distance = 0.3
@@ -42,7 +45,7 @@ class Zed():
 
         # Open the camera
         err = self.zed.open(self.init_params)
-        if err != sl.ERROR_CODE.SUCCESS :
+        if err != sl.ERROR_CODE.SUCCESS:
             msg = repr(err)
             print(msg)
             print("If using SVO, check if the path is correct")
@@ -54,26 +57,32 @@ class Zed():
 
         # Create and set RuntimeParameters after opening the camera
         self.runtime_parameters = sl.RuntimeParameters()
-        #if self.svo_mode:
-        #    self.runtime_parameters.sensing_mode = sl.SENSING_MODE.FILL
+        self.runtime_parameters.enable_fill_mode = True
         self.runtime_parameters.confidence_threshold = confidence
 
-        # Get Camera Calibration Parameters
-        # self.camera_params = self.zed.get_camera_information().calibration_parameters.left_cam
-        self.camera_params = self.zed.get_camera_information().camera_configuration.calibration_parameters.left_cam
-        self.fx = self.camera_params.fx  # Focal length in pixels (x-axis)
-        self.fy = self.camera_params.fy  # Focal length in pixels (y-axis)
-        self.cx = self.camera_params.cx  # X-coordinate of the principal point
-        self.cy = self.camera_params.cy  # Y-coordinate of the principal point
-
-        
-
+        # Get full stereo calibration parameters
+        self._load_calibration()
 
         # declare image, depth, point cloud
         self.image = sl.Mat()
+        self.image_right = sl.Mat()
         self.depth = sl.Mat()
         self.point_cloud = sl.Mat()
         # self.confidence_map = sl.Mat()
+
+    def _load_calibration(self):
+        calib = self.zed.get_camera_information().camera_configuration.calibration_parameters
+        self.cam_left = calib.left_cam
+        self.cam_right = calib.right_cam
+        # 4x4 transformation from left → right camera coordinate frame
+        self.stereo_transform = np.array(calib.stereo_transform.m, dtype=np.float64)
+
+        # Backward-compatible aliases
+        self.camera_params = self.cam_left
+        self.fx = self.cam_left.fx
+        self.fy = self.cam_left.fy
+        self.cx = self.cam_left.cx
+        self.cy = self.cam_left.cy
 
     def print_information(self):
         print("Resolution: {0}, {1}.".format(
@@ -93,6 +102,8 @@ class Zed():
     def get_image(self):
         # Retrieve left rectified image
         self.zed.retrieve_image(self.image, sl.VIEW.LEFT)
+        # Retrieve right rectified image (for stereo triangulation)
+        self.zed.retrieve_image(self.image_right, sl.VIEW.RIGHT)
         # Retrieve depth map. Depth is aligned on the left image
         self.zed.retrieve_image(self.depth, sl.VIEW.CONFIDENCE)
         # Retrieve colored point cloud. Point cloud is aligned on the left image.
@@ -102,4 +113,5 @@ class Zed():
 
         # convert zed image to numpy array
         self.img = self.image.get_data()
+        self.img_right = self.image_right.get_data()
         self.depth_img = self.depth.get_data()
