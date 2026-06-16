@@ -7,8 +7,8 @@ from config import config
 def split_dataset(ratio=0.8):
     take_name = config.take_name
 
-    audio_data = np.load(f"data/dataframes/{take_name}_audio.npy")
-    mocap_data = np.load(f"data/dataframes/{take_name}.npy")
+    audio_data = np.load(f"data/features/{take_name}_audio.npy")
+    mocap_data = np.load(f"data/features/{take_name}.npy")
     assert audio_data.shape[0] == mocap_data.shape[0], "Audio and mocap frames mismatch!"
 
     print(f"\nLoaded data:")

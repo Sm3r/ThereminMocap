@@ -6,7 +6,6 @@ import cv2
 import pyzed.sl as sl
 import serial
 
-from cv_reader import find_crow_port
 from mocap_tools.natnet.NatNetClient import NatNetClient
 import sys
 import os
@@ -31,11 +30,11 @@ if config.check_files_exist():
     sys.exit(1)
 
 name = config.take_name
-os.makedirs("data/takes", exist_ok=True)
-cv_filename = f"data/takes/{name}_cv.csv"
+os.makedirs("data/recordings", exist_ok=True)
+cv_filename = f"data/recordings/{name}_cv.csv"
 tak_filename = name
-output_svo_file = f"data/takes/{name}.svo"
-webcam_output = f"data/takes/{name}_webcam.avi"
+output_svo_file = f"data/recordings/{name}.svo"
+webcam_output = f"data/recordings/{name}_webcam.avi"
 
 stop_event = threading.Event()
 
@@ -45,7 +44,7 @@ stop_event = threading.Event()
 
 def cv_thread_fn():
     print("[CV] Initializing")
-    port = find_crow_port(port=config.crow_port)
+    port = config.crow_port
 
     ser = serial.Serial(port, 115200, timeout=1)
     time.sleep(0.5)
@@ -263,13 +262,13 @@ if record_zed:
 
     threads.append(threading.Thread(
         target=zed_thread_fn,
-        args=(serial_1, f"data/takes/{name}_cam1.svo"),
+        args=(serial_1, f"data/recordings/{name}_cam1.svo"),
         daemon=True
     ))
 
     threads.append(threading.Thread(
         target=zed_thread_fn,
-        args=(serial_2, f"data/takes/{name}_cam2.svo"),
+        args=(serial_2, f"data/recordings/{name}_cam2.svo"),
         daemon=True
     ))
 
@@ -314,7 +313,7 @@ except KeyboardInterrupt:
 
 if record_motion:
     import fnmatch
-    tak_dst = f"data/takes/{tak_filename}.tak"
+    tak_dst = f"data/recordings/{tak_filename}.tak"
 
     search_root = os.path.join(os.path.expanduser("~"), "Documents", "OptiTrack")
     pattern = f"{tak_filename}_*.tak"

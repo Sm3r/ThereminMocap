@@ -10,7 +10,7 @@ clean_mocap_csv()
 print("Loading mocap data...")
 take = Take(frame_rate=config.rates.mocap_fps)
 take_name = config.take_name
-take.readCSV(f"data/dataframes/MOCAP_{take_name}_CLEAN.csv")
+take.readCSV(f"data/features/MOCAP_{take_name}_CLEAN.csv")
 
 raw_markers = take.markers
 
@@ -33,5 +33,5 @@ downsampled_frames = num_frames // ds_factor
 all_data = sum(all_data[i::ds_factor][:downsampled_frames] for i in range(ds_factor)) / ds_factor
 print(f"Downsampled shape: {all_data.shape}")
 
-np.save(f"data/dataframes/{take_name}.npy", all_data)
+np.save(f"data/features/{take_name}.npy", all_data)
 

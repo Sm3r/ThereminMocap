@@ -33,7 +33,7 @@ def clean_mocap_csv():
     take_name = config.take_name
 
     # Renaming the columns using the metadata to get a better understanding of the values
-    with open(f"data/dataframes/MOCAP_{take_name}.csv", "r") as f:
+    with open(f"data/features/MOCAP_{take_name}.csv", "r") as f:
         reader = csv.reader(f)
         header_rows = [next(reader) for _ in range(8)]
 
@@ -72,7 +72,7 @@ def clean_mocap_csv():
 
         name_counts[col] += 1
 
-    df = pd.read_csv(f"data/dataframes/MOCAP_{take_name}.csv", skiprows=8, names=final_columns)
+    df = pd.read_csv(f"data/features/MOCAP_{take_name}.csv", skiprows=8, names=final_columns)
 
     # Deleting rigid bodies quaternions since I don't need them
     cols_to_drop = []
@@ -116,5 +116,5 @@ def clean_mocap_csv():
             df[col] = df[col].interpolate(method='pchip', limit_direction='both')
         
     
-    df.to_csv(f"data/dataframes/MOCAP_{take_name}_CLEAN.csv", index=False)
+    df.to_csv(f"data/features/MOCAP_{take_name}_CLEAN.csv", index=False)
     

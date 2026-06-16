@@ -33,7 +33,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     take = args.take or config.take_name
-    data_dir = "data/dataframes"
+    data_dir = "data/features"
 
     raw_pattern = os.path.join(data_dir, f"{take}_cam*.csv")
     raw_files = sorted(glob.glob(raw_pattern))

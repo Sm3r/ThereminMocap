@@ -42,7 +42,7 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
     if use_triangulation is None:
         use_triangulation = (config.depth_mode == "triangulation")
 
-    os.makedirs('data/dataframes', exist_ok=True)
+    os.makedirs('data/features', exist_ok=True)
 
     detector = HandTracking(maxHands=1, detectionCon=0.2, trackCon=0.8, complexity=1, draw=show_windows)
 

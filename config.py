@@ -87,7 +87,7 @@ class Config:
             }, f)
 
     def check_files_exist(self):
-        pattern = f"data/takes/{self.take_name}.*"
+        pattern = f"data/recordings/{self.take_name}.*"
         existing = glob.glob(pattern)
         return bool(existing)
 

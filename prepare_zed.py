@@ -18,7 +18,7 @@ parser.add_argument("--rebuild", action="store_true", help="Force rebuild all CS
 args = parser.parse_args()
 
 take_name = config.take_name
-data_dir = "data/dataframes"
+data_dir = "data/features"
 pattern = os.path.join("data", "takes", f"{take_name}_cam*.svo2")
 svo_files = sorted(glob.glob(pattern))
 
@@ -95,8 +95,8 @@ if os.path.exists(cam1_csv):
     right_cols = sorted(c for c in df.columns if c.startswith("right_"))
     left_data = df[left_cols].values
     right_data = df[right_cols].values
-    np.save(f"data/dataframes/{take_name}_cam1_left_hand.npy", left_data)
-    np.save(f"data/dataframes/{take_name}_cam1_right_hand.npy", right_data)
+    np.save(f"data/features/{take_name}_cam1_left_hand.npy", left_data)
+    np.save(f"data/features/{take_name}_cam1_right_hand.npy", right_data)
     print(f"  Saved left hand:  {left_data.shape}")
     print(f"  Saved right hand: {right_data.shape}")
 else:

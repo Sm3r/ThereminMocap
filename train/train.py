@@ -576,13 +576,13 @@ def main():
         "--zed-csv",
         type=str,
         required=True,
-        #default="/home/mmlab/Desktop/Theremin/ThereminMocap/data/dataframes/final720_30fps_cam1.csv",
+        #default="/home/mmlab/Desktop/Theremin/ThereminMocap/data/features/final720_30fps_cam1.csv",
     )
     parser.add_argument(
         "--target-csv",
         type=str,
         required=True,
-        #default="/home/mmlab/Desktop/Theremin/ThereminMocap/data/dataframes/CV_final720_30fps.csv",
+        #default="/home/mmlab/Desktop/Theremin/ThereminMocap/data/features/CV_final720_30fps.csv",
     )
 
     parser.add_argument("--frame-col", type=str, default="Frame")

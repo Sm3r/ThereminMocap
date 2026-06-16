@@ -15,8 +15,8 @@ ThereminMocap/
 ├── config.json              
 ├── requirements.txt         
 ├── data/
-│   ├── dataframes/         
-│   └── takes/             
+│   ├── features/         
+│   └── recordings/             
 ├── out/
 │   ├── train/         
 │   └── test/           
@@ -77,7 +77,7 @@ ThereminMocap/
     ```
 3. **Save your Takes!**
 
-    Go to the takes folder, zip the takes and save them somewere safe.
+    Go to the recordings folder, zip the takes and save them somewere safe.
 ## 
 
 #### Data Preparation
@@ -89,7 +89,7 @@ ThereminMocap/
     - Train the markerset
     - Go in to the labelling section and manually relabel the lost markers with the quick label tool.
     - Solve the rigid bodies.
-    - Export the take as a .tak file in the takes folder.
+    - Export the take as a .tak file in the recordings folder.
 
 5. **Process mocap data**
 

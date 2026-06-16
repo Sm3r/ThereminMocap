@@ -9,7 +9,7 @@ from config import config
 take_name = config.take_name
 
 # Load the audio file using librosa
-audio_path = f"data/takes/{take_name}.wav"
+audio_path = f"data/recordings/{take_name}.wav"
 audio, sample_rate = librosa.load(audio_path, sr=config.rates.audio_sr, mono=False)
 
 # Split into 3 separate channels
@@ -101,8 +101,8 @@ df['Frame'] = range(len(df))
 print(df.head())
 
 # Save the audio features
-os.makedirs("data/dataframes", exist_ok=True)
-df.to_csv(f"data/dataframes/CV_{take_name}.csv", index=False)
+os.makedirs("data/features", exist_ok=True)
+df.to_csv(f"data/features/CV_{take_name}.csv", index=False)
 
 out_audio_feats = df[['Pitch_CV', 'Volume_CV']].to_numpy()
-np.save(f"data/dataframes/{take_name}_audio.npy", out_audio_feats)
+np.save(f"data/features/{take_name}_audio.npy", out_audio_feats)

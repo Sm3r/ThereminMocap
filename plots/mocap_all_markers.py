@@ -16,8 +16,8 @@ def plot_all_markers(mocap_data=None, marker_names=None,
     if mocap_data is None or marker_names is None:
         take_name = config.take_name
         take = Take()
-        take.readCSV(f"data/dataframes/MOCAP_{take_name}_CLEAN.csv")
-        mocap_data = np.load(f"data/dataframes/{take_name}.npy")
+        take.readCSV(f"data/features/MOCAP_{take_name}_CLEAN.csv")
+        mocap_data = np.load(f"data/features/{take_name}.npy")
         marker_names = list(take.markers.keys())
         left_name = config.names.left_hand
         right_name = config.names.right_hand
