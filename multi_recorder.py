@@ -1,4 +1,3 @@
-import argparse
 import csv
 import os
 import sys
@@ -16,41 +15,39 @@ import shutil
 from mocap_tools.natnet.NatNetClient import NatNetClient
 from config import config
 
+# ==========================
+# CONSTANTS
+# ==========================
+_SVO_CODECS = {
+    "H264": sl.SVO_COMPRESSION_MODE.H264,
+    "H265": sl.SVO_COMPRESSION_MODE.H265,
+    "LOSSLESS": sl.SVO_COMPRESSION_MODE.LOSSLESS,
+    "LOSSLESS_H264": sl.SVO_COMPRESSION_MODE.H264_LOSSLESS,
+    "LOSSLESS_H265": sl.SVO_COMPRESSION_MODE.H265_LOSSLESS,
+}
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--target", type=str, required=True,
-                    choices=["pitch", "volume"],
-                    help="Which target to record for")
-parser.add_argument("--take-name", type=str, default=None,
-                    help="Override take name (default: from config based on --target)")
-parser.add_argument("--no-cv", action="store_true", help="Skip Crow CV recording")
-parser.add_argument("--no-motion", action="store_true", help="Skip mocap recording")
-parser.add_argument("--no-zed", action="store_true", help="Skip ZED recording")
-parser.add_argument("--no-webcam", action="store_true", help="Skip webcam recording")
-args = parser.parse_args()
-
-record_cv = not args.no_cv
-record_motion = not args.no_motion
-record_zed = not args.no_zed
-record_webcam = not args.no_webcam
+# ==========================
+# CONFIG
+# ==========================
+record_cv = True
+record_motion = True
+record_zed = True
+record_webcam = True
 
 load_dotenv()
 
-take_name = args.take_name or config.get_take_name(args.target)
-os.makedirs("data/recordings", exist_ok=True)
-
-cv_filename = f"data/recordings/{take_name}_cv.csv"
-tak_filename = take_name
-output_svo_file = f"data/recordings/{take_name}_cam1.svo"
-webcam_output = f"data/recordings/{take_name}_webcam.avi"
-
-# Prevent overwriting
-if config.check_files_exist(take_name):
-    print(f"[ERROR] Cannot start recording - files would be overwritten for '{take_name}'.")
+if config.check_files_exist():
+    print("[ERROR] Cannot start recording - files would be overwritten.")
     sys.exit(1)
 
-stop_event = threading.Event()
+os.makedirs("data/recordings", exist_ok=True)
 
+name = config.take_name
+cv_filename = f"data/recordings/{name}_cv.csv"
+tak_filename = name
+webcam_output = f"data/recordings/{name}_webcam.avi"
+
+stop_event = threading.Event()
 
 # ==========================
 # CV THREAD (Crow module)
@@ -109,17 +106,8 @@ def cv_thread_fn():
     print("[CV] Stopped")
 
 
-_SVO_CODECS = {
-    "H264": sl.SVO_COMPRESSION_MODE.H264,
-    "H265": sl.SVO_COMPRESSION_MODE.H265,
-    "LOSSLESS": sl.SVO_COMPRESSION_MODE.LOSSLESS,
-    "LOSSLESS_H264": sl.SVO_COMPRESSION_MODE.H264_LOSSLESS,
-    "LOSSLESS_H265": sl.SVO_COMPRESSION_MODE.H265_LOSSLESS,
-}
-
-
 # ==========================
-# ZED THREAD (single camera)
+# ZED THREAD
 # ==========================
 def zed_thread_fn(serial_number, output_file):
     print(f"[ZED {serial_number}] Initializing")
@@ -271,7 +259,7 @@ if record_zed:
     serial_1 = int(os.getenv("ZED_SERIAL_1"))
     threads.append(threading.Thread(
         target=zed_thread_fn,
-        args=(serial_1, output_svo_file),
+        args=(serial_1, f"data/recordings/{name}_cam1.svo"),
         daemon=True
     ))
 
@@ -305,30 +293,5 @@ try:
         t.join(timeout=5)
 except KeyboardInterrupt:
     pass
-
-if record_motion:
-    tak_dst = f"data/recordings/{tak_filename}.tak"
-    search_root = os.path.join(os.path.expanduser("~"), "Documents", "OptiTrack")
-    pattern = f"{tak_filename}_*.tak"
-    tak_src = None
-    tak_src_mtime = 0
-    for _ in range(30):
-        for root, dirs, files in os.walk(search_root):
-            for f in fnmatch.filter(files, pattern):
-                candidate = os.path.join(root, f)
-                mtime = os.path.getmtime(candidate)
-                if mtime > tak_src_mtime:
-                    tak_src = candidate
-                    tak_src_mtime = mtime
-        if tak_src:
-            break
-        time.sleep(1.0)
-
-    if tak_src:
-        shutil.move(tak_src, tak_dst)
-        size_mb = os.path.getsize(tak_dst) / 1_000_000
-        print(f"[MOTION] .tak saved to {tak_dst} ({size_mb:.1f} MB)")
-    else:
-        print(f"[MOTION] WARNING: .tak matching '{pattern}' not found under {search_root}")
 
 print("All recordings stopped cleanly.")
