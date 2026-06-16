@@ -96,6 +96,59 @@ def fix_hand_labels(csv_path: str, window: int = 30, min_votes: int = 10, swap_r
     return csv_path
 
 
+def drop_minority_hand(csv_path: str, min_ratio: float = 3.0) -> str:
+    """Drop frames where the minority hand is detected.
+
+    Each frame records `left_2d_detected` / `right_2d_detected`.
+    The hand detected in the majority of frames is the dominant one;
+    frames where the dominant hand was **not** detected are dropped.
+
+    Parameters
+    ----------
+    csv_path : str — path to CSV (modified in-place)
+    min_ratio : float — minimum majority/minority ratio to apply dropping
+
+    Returns
+    -------
+    str — path to the modified CSV
+    """
+    df = pd.read_csv(csv_path)
+
+    has_left = "left_2d_detected" in df.columns
+    has_right = "right_2d_detected" in df.columns
+    if not has_left and not has_right:
+        return csv_path
+    left_count = df["left_2d_detected"].sum() if has_left else 0
+    right_count = df["right_2d_detected"].sum() if has_right else 0
+
+    if left_count == 0 and right_count == 0:
+        print(f"    No hand detections found, skipping")
+        return csv_path
+
+    if left_count > right_count:
+        majority_hand = "left"
+        maj_count = left_count
+        ratio = left_count / right_count if right_count > 0 else float("inf")
+    else:
+        majority_hand = "right"
+        maj_count = right_count
+        ratio = right_count / left_count if left_count > 0 else float("inf")
+
+    print(f"    Majority hand: {majority_hand} ({maj_count}/{len(df)} frames, ratio={ratio:.1f})")
+
+    if ratio < min_ratio:
+        print(f"    Ratio {ratio:.1f} < {min_ratio}, skipping drop")
+        return csv_path
+
+    keep = df[f"{majority_hand}_2d_detected"].astype(bool)
+    n_before = len(df)
+    df = df[keep].reset_index(drop=True)
+    n_dropped = n_before - len(df)
+    print(f"    Dropped {n_dropped}/{n_before} frames")
+    df.to_csv(csv_path, index=False)
+    return csv_path
+
+
 def preprocess_csv(csv_path: str, window: int = 128, threshold: float = 8.0) -> str:
     print(f"  Cleaning {os.path.basename(csv_path)} ...")
     df = pd.read_csv(csv_path)

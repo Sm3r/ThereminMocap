@@ -84,9 +84,9 @@ def main():
     else:
         take = args.take or config.take_name
         data_dir = "data/dataframes"
-        csv_path = os.path.join(data_dir, f"{take}_cam1_preprocessed.csv")
+        csv_path = os.path.join(data_dir, f"{take}_cam2_preprocessed.csv")
         if not os.path.exists(csv_path):
-            fallback = os.path.join(data_dir, f"{take}_cam1.csv")
+            fallback = os.path.join(data_dir, f"{take}_cam2.csv")
             if os.path.exists(fallback):
                 csv_path = fallback
             else:
