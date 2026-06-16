@@ -1,11 +1,13 @@
+import csv
 import threading
 import time
-import wave
+
 import cv2
-import pyaudio
 import pyzed.sl as sl
+import serial
+
+from cv_reader import find_crow_port
 from mocap_tools.natnet.NatNetClient import NatNetClient
-import array
 import sys
 import os
 from dotenv import load_dotenv
@@ -15,20 +17,10 @@ from config import config
 # ==========================
 # CONFIG
 # ==========================
-record_audio = False
+record_cv = True
 record_motion = True
 record_zed = True
 record_webcam = True
-DEBUG_DEVICES = True
-
-SAMPLE_WIDTH = 2
-CHANNELS_TO_SAVE = 3
-INPUT_CHANNELS = 8
-
-chunk = 1024
-sample_format = pyaudio.paInt16
-channels = 8
-fs = config.rates.audio_sr
 
 
 load_dotenv()
@@ -40,7 +32,7 @@ if config.check_files_exist():
 
 name = config.take_name
 os.makedirs("data/takes", exist_ok=True)
-audio_filename = f"data/takes/{name}.wav"
+cv_filename = f"data/takes/{name}_cv.csv"
 tak_filename = name
 output_svo_file = f"data/takes/{name}.svo"
 webcam_output = f"data/takes/{name}_webcam.avi"
@@ -48,66 +40,58 @@ webcam_output = f"data/takes/{name}_webcam.avi"
 stop_event = threading.Event()
 
 # ==========================
-# AUDIO THREAD
+# CV THREAD (Crow module)
 # ==========================
 
-def audio_thread_fn():
-    print("[AUDIO] Initializing")
-    p = pyaudio.PyAudio()
-    stream = p.open(
-        format=sample_format,
-        channels=INPUT_CHANNELS,
-        rate=fs,
-        input=True,
-        input_device_index=21,
-        frames_per_buffer=1024
-    )
-    recorded_frames = []
+def cv_thread_fn():
+    print("[CV] Initializing")
+    port = find_crow_port(port=config.crow_port)
 
-    print("[AUDIO] Ready, waiting for all streams…")
-    try:
-        start_barrier.wait()
-    except threading.BrokenBarrierError:
-        print("[AUDIO] Barrier broken, aborting.")
-        stream.close()
-        p.terminate()
-        return
+    ser = serial.Serial(port, 115200, timeout=1)
+    time.sleep(0.5)
+    ser.reset_input_buffer()
 
-    print("[AUDIO] Recording")
-    while not stop_event.is_set():
+    with open(cv_filename, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "crow_frame",
+            "volume_volts",
+            "pitch_volts",
+            "volume_norm_volts",
+            "pitch_norm_volts",
+        ])
+
+        print(f"[CV] Connected to {port}")
+        print("[CV] Ready, waiting for all streams…")
         try:
-            data = stream.read(1024, exception_on_overflow=False)
+            start_barrier.wait()
+        except threading.BrokenBarrierError:
+            print("[CV] Barrier broken, aborting.")
+            ser.close()
+            return
 
-            # Convert bytes -> array of 16-bit ints
-            samples = array.array('h', data)
+        print("[CV] Recording")
+        try:
+            while not stop_event.is_set():
+                line = ser.readline().decode("utf-8", errors="replace").strip()
+                if not line.startswith("cv,"):
+                    continue
+                parts = line.split(",")
+                if len(parts) != 6:
+                    continue
+                _, frame, v1, v2, n1, n2 = parts
+                writer.writerow([
+                    int(frame),
+                    float(v1),
+                    float(v2),
+                    float(n1),
+                    float(n2),
+                ])
+                f.flush()
+        finally:
+            ser.close()
 
-            # Each "frame" is INPUT_CHANNELS samples
-            frames_per_buffer = len(samples) // INPUT_CHANNELS
-
-            # Extract only first 3 channels
-            new_samples = array.array('h', [samples[i*INPUT_CHANNELS + ch]
-                                            for i in range(frames_per_buffer)
-                                            for ch in range(CHANNELS_TO_SAVE)])
-
-            recorded_frames.append(new_samples.tobytes())
-
-        except Exception as e:
-            print("[AUDIO] Error:", e)
-            break
-
-    stream.stop_stream()
-    stream.close()
-
-    # Save WAV
-    wf = wave.open(audio_filename, 'wb')
-    wf.setnchannels(CHANNELS_TO_SAVE)
-    wf.setsampwidth(SAMPLE_WIDTH)
-    wf.setframerate(fs)
-    wf.writeframes(b''.join(recorded_frames))
-    wf.close()
-
-    p.terminate()
-    print("[AUDIO] Stopped")
+    print("[CV] Stopped")
 
 
 
@@ -185,7 +169,7 @@ def zed_thread_fn(serial_number, output_file):
 # ==========================
 def webcam_thread_fn():
     print("[WEBCAM] Initializing")
-    cap = cv2.VideoCapture(config.webcam.index, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(config.webcam.index, cv2.CAP_MSMF)
 
     # Read first frame to discover actual camera resolution
     ret, frame = cap.read()
@@ -257,6 +241,7 @@ def natnet_thread_fn():
         time.sleep(0.01)
 
     client.send_command("StopRecording")
+    time.sleep(2)
     client.shutdown()
     print("[MOTION] NatNet thread stopped")
 
@@ -266,9 +251,9 @@ def natnet_thread_fn():
 
 threads = []
 
-if record_audio:
+if record_cv:
     threads.append(threading.Thread(
-        target=audio_thread_fn,
+        target=cv_thread_fn,
         daemon=True
     ))
 
@@ -321,24 +306,38 @@ except KeyboardInterrupt:
             pass
 
 
-for t in threads:
-    t.join()
+try:
+    for t in threads:
+        t.join(timeout=5)
+except KeyboardInterrupt:
+    pass
 
 if record_motion:
-    tak_src = os.path.join(os.path.expanduser("~"), "Documents", "OptiTrack", "Default", f"{tak_filename}.tak")
+    import fnmatch
     tak_dst = f"data/takes/{tak_filename}.tak"
 
-    # Give Motive time to finish writing the file
-    for _ in range(20):
-        if os.path.exists(tak_src):
+    search_root = os.path.join(os.path.expanduser("~"), "Documents", "OptiTrack")
+    pattern = f"{tak_filename}_*.tak"
+    tak_src = None
+    tak_src_mtime = 0
+    for _ in range(30):
+        for root, dirs, files in os.walk(search_root):
+            for f in fnmatch.filter(files, pattern):
+                candidate = os.path.join(root, f)
+                mtime = os.path.getmtime(candidate)
+                if mtime > tak_src_mtime:
+                    tak_src = candidate
+                    tak_src_mtime = mtime
+        if tak_src:
             break
-        time.sleep(0.5)
+        time.sleep(1.0)
 
-    if os.path.exists(tak_src):
+    if tak_src:
         shutil.move(tak_src, tak_dst)
-        print(f"[MOTION] .tak saved to {tak_dst}")
+        size_mb = os.path.getsize(tak_dst) / 1_000_000
+        print(f"[MOTION] .tak saved to {tak_dst} ({size_mb:.1f} MB)")
     else:
-        print(f"[MOTION] WARNING: .tak not found at {tak_src}")
+        print(f"[MOTION] WARNING: .tak matching '{pattern}' not found under {search_root}")
         print(f"[MOTION] Check Motive → View → Data View → Recording for the save path")
 
 print("All recordings stopped cleanly.")

@@ -6,7 +6,10 @@ import serial
 from serial.tools import list_ports
 
 
-def find_crow_port():
+def find_crow_port(port=None):
+    if port:
+        return port
+
     ports = list(list_ports.comports())
 
     for p in ports:
@@ -35,7 +38,6 @@ def main():
         with output_path.open("w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([
-                "python_time_ns",
                 "crow_frame",
                 "input1_volts",
                 "input2_volts",
@@ -62,7 +64,6 @@ def main():
                     _, frame, v1, v2, n1, n2 = parts
 
                     writer.writerow([
-                        time.time_ns(),
                         int(frame),
                         float(v1),
                         float(v2),

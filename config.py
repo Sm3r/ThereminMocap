@@ -35,6 +35,7 @@ class Config:
 
     def __init__(self):
         self.depth_mode = "point_cloud"
+        self.crow_port = None
         self.webcam = SimpleNamespace(**self._DEFAULT_WEBCAM)
         self.zed = SimpleNamespace(**self._DEFAULT_ZED)
 
@@ -45,6 +46,7 @@ class Config:
             with open(self.config_file, 'r') as f:
                 data = json.load(f)
                 self.take_name = data.get('take_name', self.default)
+                self.crow_port = data.get('crow_port', None)
                 self.names = SimpleNamespace(**(data.get('names', self._DEFAULT_NAMES)))
                 self.rates = SimpleNamespace(**(data.get('rates', self._DEFAULT_RATES)))
 
@@ -63,6 +65,7 @@ class Config:
             self.zed = SimpleNamespace(**zed_data)
         else:
             self.take_name = self.default
+            self.crow_port = None
             self.names = SimpleNamespace(**self._DEFAULT_NAMES)
             self.rates = SimpleNamespace(**self._DEFAULT_RATES)
 
@@ -72,6 +75,7 @@ class Config:
             json.dump({
                 'take_name': name,
                 'depth_mode': self.depth_mode,
+                'crow_port': self.crow_port,
                 'webcam': {
                     'index': self.webcam.index,
                 },

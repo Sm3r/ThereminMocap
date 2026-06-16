@@ -1,20 +1,21 @@
 {
-    "take_name": "prova_giugno",
+    "take_name": "train_volume",
     "depth_mode": "point_cloud",
     "webcam": {
         "index": 1
     },
+    "crow_port": "COM6",
     "zed": {
         "svo_codec": "LOSSLESS"
     },
     "names": {
-        "left_hand": "LeftHand",
-        "right_hand": "RightHand",
+        "left_hand": "left",
+        "right_hand": "right",
         "pitch_antenna": "pitch",
         "volume_antenna": "volume"
     },
     "rates": {
-        "mocap_fps": 120,
+        "mocap_fps": 360,
         "target_fps": 60,
         "audio_sr": 44100,
         "audio_hop": 245,

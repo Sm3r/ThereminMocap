@@ -22,4 +22,7 @@ mediapipe>=0.10.0
 # OSC communication (SuperCollider)
 python-osc>=1.8.0
 
+# CV reader (Monome Crow serial)
+pyserial>=3.5
+
 
