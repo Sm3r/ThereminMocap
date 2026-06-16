@@ -1,6 +1,6 @@
 {
     "take_name": "prova_giugno",
-    "depth_mode": "triangulation",
+    "depth_mode": "point_cloud",
     "webcam": {
         "index": 1
     },
