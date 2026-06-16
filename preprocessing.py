@@ -1,28 +1,7 @@
-import glob
-import os
-import sys
-
 import numpy as np
 import pandas as pd
 
 from config import config
-
-
-def _create_spike_mask(df: pd.DataFrame, columns: list[str],
-                       window: int, threshold: float) -> pd.DataFrame:
-    half = window // 2
-    mask = pd.DataFrame(False, index=df.index, columns=df.columns)
-    for col in columns:
-        if col not in df.columns:
-            continue
-        roll_med = df[col].rolling(window=window, center=True, min_periods=1).median()
-        roll_mad = (df[col] - roll_med).abs().rolling(
-            window=window, center=True, min_periods=1
-        ).median()
-        dev = (df[col] - roll_med).abs()
-        mask[col] = (roll_mad > 0) & (dev / roll_mad > threshold)
-    return mask
-
 
 def fix_hand_labels(df: pd.DataFrame, window: int = 30, min_votes: int = 5, swap_ratio: float = 1.0) -> pd.DataFrame:
     df = df.copy()
@@ -144,7 +123,22 @@ def drop_minority_hand(df: pd.DataFrame, min_ratio: float = 3.0) -> pd.DataFrame
     return df
 
 
-def preprocess_csv(df: pd.DataFrame, window: int = 128, threshold: float = 8.0) -> pd.DataFrame:
+def _create_spike_mask(df: pd.DataFrame, columns: list[str],
+                       window: int, threshold: float) -> pd.DataFrame:
+    half = window // 2
+    mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+    for col in columns:
+        if col not in df.columns:
+            continue
+        roll_med = df[col].rolling(window=window, center=True, min_periods=1).median()
+        roll_mad = (df[col] - roll_med).abs().rolling(
+            window=window, center=True, min_periods=1
+        ).median()
+        dev = (df[col] - roll_med).abs()
+        mask[col] = (roll_mad > 0) & (dev / roll_mad > threshold)
+    return mask
+
+def remove_spikes(df: pd.DataFrame, window: int = 128, threshold: float = 8.0, iterations: int = 2) -> pd.DataFrame:
     df = df.copy()
     hand_cols = []
 
@@ -155,12 +149,12 @@ def preprocess_csv(df: pd.DataFrame, window: int = 128, threshold: float = 8.0) 
                 if col in df.columns:
                     hand_cols.append(col)
 
-    for _ in range(2):
-        if range == 0:
-            window = 128
+    for _ in range(iterations):
+        if _ == 0:
+            window = window
             threshold = 8.0
         else:
-            window = 64
+            window = window // 2
             threshold = 8.0
         mask = _create_spike_mask(df, hand_cols, window, threshold)
         for col in hand_cols:
@@ -170,28 +164,3 @@ def preprocess_csv(df: pd.DataFrame, window: int = 128, threshold: float = 8.0) 
             df.loc[mask[col], col] = np.nan
 
     return df
-
-
-if __name__ == "__main__":
-    take_name = config.take_name
-    pattern = os.path.join("data", "dataframes", f"{take_name}_cam*.csv")
-    csv_files = sorted(
-        f for f in glob.glob(pattern)
-        if not os.path.splitext(f)[0].endswith("_preprocessed")
-    )
-
-    if not csv_files:
-        print(f"No CSV files found matching {pattern}")
-        sys.exit(1)
-
-    print(f"Preprocessing {len(csv_files)} CSV(s) for take '{take_name}' ...\n")
-    for csv_path in csv_files:
-        base, ext = os.path.splitext(csv_path)
-        print(f"  Cleaning {os.path.basename(csv_path)} ...")
-        df = pd.read_csv(csv_path)
-        df = preprocess_csv(df)
-        out_path = f"{base}_preprocessed{ext}"
-        df.to_csv(out_path, index=False)
-        print(f"    Saved to {os.path.basename(out_path)}")
-        df = fix_hand_labels(pd.read_csv(out_path))
-        df.to_csv(out_path, index=False)

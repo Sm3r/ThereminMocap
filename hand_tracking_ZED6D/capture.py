@@ -275,8 +275,9 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
                 print(frame_line.ljust(80), flush=True)
                 first_print = False
 
-                # single key check for all displayed windows
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                # throttle to real-time when playing back an SVO with windows
+                wait_ms = max(1, int(1000 / fps)) if (show_windows and fps) else 1
+                if cv2.waitKey(wait_ms) & 0xFF == ord('q'):
                     break
             elif print_fps:
                 fps_parts = []
