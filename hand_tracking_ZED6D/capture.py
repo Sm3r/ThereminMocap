@@ -190,7 +190,7 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
 
     interrupted = False
     try:
-        while frame <= final_frame and not stop_event.is_set():
+        while frame <= final_frame:
             any_success = False
             per_cam = [None] * num_cams
 

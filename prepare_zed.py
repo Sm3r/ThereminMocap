@@ -2,21 +2,23 @@ import os
 import numpy as np
 import pandas as pd
 from hand_tracking_ZED6D.capture import capture_to_csv
-from preprocessing import fix_hand_labels, drop_minority_hand, remove_spikes
+from preprocessing import fix_hand_labels, remove_spikes
 from config import config
 
 # ==========================
 # CONFIG
 # ==========================
 fix_hand_label = True
-drop_min_hand = False
 remove_spike = True
 show_windows = False
+
+_HAND_MAP = {"pitch": "right", "volume": "left"}
 
 os.makedirs("data/features", exist_ok=True)
 
 for target in ("pitch", "volume"):
     take_name = config.get_take_name(target)
+    target_hand = _HAND_MAP[target]
 
     svo_path = f"data/recordings/{take_name}_cam1.svo2"
     if not os.path.exists(svo_path):
@@ -37,43 +39,30 @@ for target in ("pitch", "volume"):
 
     df = pd.read_csv(csv_path)
 
-    # Apply preprocessing
+    print(f"\n  === Detection summary: {take_name} ({target_hand} hand) ===")
     if fix_hand_label:
-        df = fix_hand_labels(df)
-    if drop_min_hand:
-        df = drop_minority_hand(df)
+        df = fix_hand_labels(df, target_hand=target_hand)
     if remove_spike:
         df = remove_spikes(df)
 
-    # Detection summary
+    # Detection summary for target hand
     total = len(df)
-    has_2d = 'left_2d_detected' in df.columns and 'right_2d_detected' in df.columns
+    det_col = f"{target_hand}_2d_detected"
+    if det_col in df.columns:
+        detected = df[det_col].sum()
+        pct_det = f"{detected / total * 100:5.1f}%" if total else "N/A"
+    else:
+        detected, pct_det = total, "100.0%"
 
-    landmark_cols = sorted(c for c in df.columns
-                           if (c.startswith("left_") or c.startswith("right_"))
-                           and "_detected" not in c)
-    depth_valid = df[landmark_cols].notna().any(axis=1).sum() if landmark_cols else 0
-
-    basename = os.path.basename(csv_path)
+    hand_cols = sorted(c for c in df.columns
+                       if c.startswith(f"{target_hand}_") and "_detected" not in c)
+    depth_valid = df[hand_cols].notna().any(axis=1).sum() if hand_cols else 0
     pct_depth = f"{depth_valid / total * 100:5.1f}%" if total else "N/A"
 
-    print(f"\n  === Detection summary: {basename} ===")
-    print(f"    Total frames:            {total}")
-    if has_2d:
-        mp_detected = df[['left_2d_detected', 'right_2d_detected']].any(axis=1).sum()
-        pct_mp = f"{mp_detected / total * 100:5.1f}%" if total else "N/A"
-        print(f"    MediaPipe 2D detected:   {mp_detected:>6} / {total} ({pct_mp})")
-    print(f"    Wrist depth valid:       {depth_valid:>6} / {total} ({pct_depth})")
+    print(f"    Total frames:        {total}")
+    print(f"    MediaPipe detected:   {detected:>6} / {total} ({pct_det})")
+    print(f"    3D depth valid:       {depth_valid:>6} / {total} ({pct_depth})")
 
-    # Save hands features
-    left_cols = sorted(c for c in df.columns
-                       if c.startswith("left_") and "_detected" not in c)
-    right_cols = sorted(c for c in df.columns
-                        if c.startswith("right_") and "_detected" not in c)
-
-    if left_cols:
-        np.save(f"data/features/{take_name}_left_hand.npy", df[left_cols].values)
-        print(f"    Saved left hand:  {df[left_cols].shape}")
-    if right_cols:
-        np.save(f"data/features/{take_name}_right_hand.npy", df[right_cols].values)
-        print(f"    Saved right hand: {df[right_cols].shape}")
+    if hand_cols:
+        np.save(f"data/features/{take_name}_hand.npy", df[hand_cols].values)
+        print(f"    Saved {target_hand} hand: {df[hand_cols].shape}")

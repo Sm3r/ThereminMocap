@@ -80,7 +80,10 @@ Motion capture theremin system using machine learning to map hand movements to t
         ```bash
         python3 prepare_zed.py
         ```
-    
+         This script will:
+        - Swap misslabelled hand, remove unconsistencies.
+        - Save joints in a .npy file
+
     - **<u>Mocap:</u>**
         ```bash
         python3 prepare_mocap.py
@@ -89,7 +92,7 @@ Motion capture theremin system using machine learning to map hand movements to t
         - Convert the tak file to CSV using the compiled file converter.
         - Clean the CSV file removing unwanted columns.
         - Parse the remaining bodies and markers from CSV file to classes.
-        - Export them and save in a .npy file
+        - Export them and save in a .npy file.
     
   
 
