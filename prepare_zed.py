@@ -10,7 +10,7 @@ from config import config
 # ==========================
 fix_hand_label = True
 drop_min_hand = False
-remove_spikes = True
+remove_spike = True
 show_windows = False
 
 os.makedirs("data/features", exist_ok=True)
@@ -42,10 +42,8 @@ for target in ("pitch", "volume"):
         df = fix_hand_labels(df)
     if drop_min_hand:
         df = drop_minority_hand(df)
-    if remove_spikes:
+    if remove_spike:
         df = remove_spikes(df)
-
-    df.to_csv(csv_path, index=False)
 
     # Detection summary
     total = len(df)

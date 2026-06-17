@@ -230,7 +230,11 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
             # advance frame once and append a single combined row
             frame += 1
             if filename and not show_windows:
-                print(f"\r  Processed {frame} / {final_frame} frames", end="", flush=True)
+                pct = frame / final_frame * 100 if final_frame else 0
+                bar_len = 25
+                filled = int(bar_len * frame / final_frame) if final_frame else 0
+                bar = '█' * filled + '░' * (bar_len - filled)
+                print(f"\r  [{bar}] {frame:>6}/{final_frame} ({pct:5.1f}%)", end="", flush=True)
             row = {}
             row['Frame'] = frame
 
