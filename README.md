@@ -1,8 +1,13 @@
-# ThereminMocap
+<div align="center">
 
+## **Theremin Mocap**
+
+</div>
+
+## 📖 Introduction
 Motion capture theremin system using machine learning to map hand movements to theremin audio parameters.
 
-## Input data
+## 📂 Dataset
 
 ### Dataset recording setup
 
@@ -14,42 +19,13 @@ Motion capture theremin system using machine learning to map hand movements to t
 ### Training settings
 - 2 recordings one per [hand-antenna-pitch/volume value] using each input source defined above
 
-## Project Structure
-
-```
-ThereminMocap/
-├── config.json              
-├── requirements.txt         
-├── data/
-│   ├── features/         
-│   └── recordings/             
-├── out/
-│   ├── train/         
-│   └── test/           
-├── utils/
-│   ├── cleaning.py         
-│   ├── config.py           
-│   ├── mocap_parser.py
-│   ├── plotter.py
-│   └── tak_to_csv.py
-├── train/
-│   ├── split_dataset.py         
-│   ├── data_loader.py           
-│   ├── network.py
-│   └── train.py
-├── multirecorder.py        # Mocap + ZED + Audio recorder
-├── prepare_mocap.py        # Mocap preprocessing from TAK to NPY
-├── prepare_audio.py        # Audio preprocessing from WAV to NPY
-├── main.py                 # Training script
-├── evaluate.py             # Evaluation script
-└── playback_osc.py         # Playback for the theremin inferred parameters
-```
-
-## Running the project
-### Windows Setup Instructions:
-
+## 🛠️ Installation
 
 1. **Install and run WSL**
+
+    ```bash
+   wsl
+   ```
 
 2. **Install Python 3.10**
    ```bash
@@ -57,29 +33,25 @@ ThereminMocap/
    sudo apt install python3.10
    ```
 
-3. **Install build dependencies for Essentia**
-   ```bash
-   sudo apt install build-essential libyaml-dev libfftw3-dev \
-       libavcodec-dev libavformat-dev libavutil-dev \
-       libavresample-dev libsamplerate0-dev libtag1-dev \
-       libchromaprint-dev python3-numpy-dev python3-yaml -y
-   ```
-
-4. **Create and activate virtual environment, install dependencies**
+3. **Env setup**
    ```bash
    python3.10 -m venv venv
-   source venv/bin/activate
-   pip install --upgrade pip
-   pip install -r requirements.txt
+   exit
    ```
 
-### Pipeline
+   ```bash
+   .\venv\bin\activate
+   py -m pip install --upgrade pip
+   py -m pip install -r requirements.txt
+   ```
+
+### 🚀 Usage
 
 #### Data Acquisition
 1. **Edit the config file with desired naming**
 2. **Record mocap, ZED and audio data**
     ```bash
-    python3 multirecorder.py
+    python3 multi_recorder.py
     ```
 3. **Save your Takes!**
 
@@ -89,9 +61,9 @@ ThereminMocap/
 #### Data Preparation
 
 4. **Manual motive take preparation**
-    - Open Motive, load your take, and trim it to remove noisy frames at start and end.
-    - Create one rigid body per antenna naming it as the config name you choose.
-    - Create one markerset per hand naming it as the config name you choose.
+    - Open Motive, load your take.
+    - Create one rigid body per antenna, and camera
+    - Create one markerset per hand
     - Train the markerset
     - Go in to the labelling section and manually relabel the lost markers with the quick label tool.
     - Solve the rigid bodies.
@@ -128,11 +100,7 @@ ThereminMocap/
    python3 -m train.train
    ```
 
-### Evaluation
+### Inference
 
-7. **Test the trained model**:
-   ```bash
-   python3 evaluate.py
-   ```
 
 
