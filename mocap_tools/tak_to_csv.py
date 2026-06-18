@@ -25,8 +25,10 @@ def convert_tak_to_csv(take_name: str = None):
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
 
-    tak_file = project_root / "data" / "recordings" / f"{take_name}.tak"
-    csv_file = project_root / "data" / "features" / f"MOCAP_{take_name}.csv"
+    tak_file = project_root / "data" / "recordings" / f"{take_name}_solved.tak"
+    csv_dir = project_root / "data" / "features" / "mocap"
+    csv_dir.mkdir(parents=True, exist_ok=True)
+    csv_file = csv_dir / f"OPTITRACK_{take_name}_raw.csv"
     converter_exe = script_dir / "optitrack-motive-file-converter" / "bin" / "Release" / "net9.0" / "converter.exe"
 
     if not converter_exe.exists():
@@ -36,7 +38,7 @@ def convert_tak_to_csv(take_name: str = None):
     tak_file_win = _to_windows_path(tak_file)
     csv_file_win = _to_windows_path(csv_file)
 
-    print(f"Converting {tak_file} to CSV...")
+    # print(f"Converting {tak_file} to CSV...")
 
     if platform.system() == "Linux":
         result = subprocess.run(

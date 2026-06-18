@@ -93,7 +93,7 @@ class Config:
         return getattr(self.mocap.rigid_bodies, key, key)
 
     def get_mocap_camera(self, target: str) -> str:
-        mapping = {"pitch": "zed_right", "volume": "zed_left"}
+        mapping = {"pitch": "zed_pitch", "volume": "zed_volume"}
         key = mapping.get(target)
         if key is None:
             raise ValueError(f"Unknown target '{target}' for mocap camera.")
@@ -143,7 +143,7 @@ class Config:
                 'mocap': {
                     'rigid_bodies': {
                         k: getattr(self.mocap.rigid_bodies, k)
-                        for k in ['zed_left', 'zed_right', 'webcam', 'pitch', 'volume']
+                        for k in ['zed_volume', 'zed_pitch', 'webcam', 'pitch', 'volume']
                         if hasattr(self.mocap.rigid_bodies, k)
                     },
                     'markersets': {

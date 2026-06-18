@@ -118,9 +118,10 @@ class Take:
                         # If no config match, use the base name before any numbers
                         object_name = base_name_with_marker.split('_')[0]
                     
-                    # Check if this is a marker (has numbers after the name) or rigid body (no numbers)
-                    if '_' in base_name_with_marker:
-                        # This is likely a marker
+                    # Check if this is a marker (has numeric suffix like _001) or rigid body
+                    parts = base_name_with_marker.rsplit('_', 1)
+                    if len(parts) == 2 and parts[1].isdigit():
+                        # This is a marker
                         marker = self.markers.setdefault(base_name_with_marker, Marker(base_name_with_marker))
                         axis_index = {'X': 0, 'Y': 1, 'Z': 2}[axis]
                         self._column_map.append(ColumnMapping(marker._set_position, axis_index, col_idx - 1))

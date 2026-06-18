@@ -11,8 +11,8 @@
     },
     "mocap": {
         "rigid_bodies": {
-            "zed_left": "zed_left",
-            "zed_right": "zed_right",
+            "zed_volume": "zed_volume",
+            "zed_pitch": "zed_pitch",
             "webcam": "webcam",
             "pitch": "pitch",
             "volume": "volume"

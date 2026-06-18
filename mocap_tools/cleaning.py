@@ -28,8 +28,8 @@ def create_outlier_mask(df, columns, deviation_threshold=0.3):
 
 
 def clean_mocap_csv(take_name, target, config):
-    raw_path = f"data/features/MOCAP_{take_name}.csv"
-    clean_path = f"data/features/{take_name}_mocap_clean.csv"
+    raw_path = f"data/features/mocap/OPTITRACK_{take_name}_raw.csv"
+    clean_path = f"data/features/mocap/OPTITRACK_{take_name}_cleaned.csv"
 
     with open(raw_path, "r") as f:
         reader = csv.reader(f)
@@ -45,12 +45,6 @@ def clean_mocap_csv(take_name, target, config):
     entities_to_keep.add(config.get_mocap_rigid_body(target))
     entities_to_keep.add(config.get_mocap_camera(target))
     entities_to_keep.add(config.get_mocap_webcam())
-
-    config_antennas = {'pitch', 'volume'}
-    for ant in config_antennas:
-        label = getattr(config.mocap.rigid_bodies, ant, None)
-        if label:
-            entities_to_keep.add(label)
 
     print(f"  Keeping entities: {entities_to_keep}")
 
@@ -89,7 +83,7 @@ def clean_mocap_csv(take_name, target, config):
     kept_columns = [c for c, k in zip(new_columns_all, keep_mask) if k]
     print(f"  Raw columns: {len(new_columns_all)} -> Kept: {len(kept_columns)}")
 
-    df = pd.read_csv(raw_path, skiprows=8, names=new_columns_all)
+    df = pd.read_csv(raw_path, skiprows=8, names=new_columns_all, on_bad_lines='skip')
     df = df.loc[:, keep_mask]
     df = df.reset_index(drop=True)
     df['Frame'] = range(len(df))
