@@ -4,9 +4,6 @@ data/recordings/*.avi
 data/recordings/*.csv
 data/recordings/*.tak
 
-# Processed data files
-data/features/*.csv
-data/features/*.npy
 
 # Python cache
 __pycache__/
