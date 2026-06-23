@@ -11,11 +11,10 @@ class Config:
     default = "take1"
 
     _DEFAULT_RATES = {
-        'mocap_fps': 120,
+        'mocap_fps': 360,
         'target_fps': 60,
-        'audio_sr': 44100,
-        'audio_hop': 245,
-        'zed_fps': 60,
+        'there_fps': 60,
+        'zed_fps': 30,
     }
 
     _DEFAULT_WEBCAM = {
@@ -154,7 +153,7 @@ class Config:
                 },
                 'rates': {
                     k: getattr(self.rates, k)
-                    for k in self._DEFAULT_RATES
+                    for k in ('mocap_fps', 'target_fps', 'there_fps', 'zed_fps')
                     if hasattr(self.rates, k)
                 },
             }, f, indent=4)

@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from scipy import interpolate
 from config import config
 
 
@@ -16,9 +17,29 @@ for target in ("pitch", "volume"):
         print(f"  Skipping {take_name}: {cv_path} not found")
         continue
 
-    col = _TARGET_COLUMNS[target]
-    values = pd.read_csv(cv_path)[col].to_numpy(dtype=np.float64)
-    np.save(f"data/features/{take_name}_audio.npy", values)
-    nan_count = int(np.isnan(values).sum())
-    print(f"  {take_name}: {len(values)} samples, {nan_count} NaNs, "
-          f"range [{values.min():.4f}, {values.max():.4f}]")
+    df = pd.read_csv(cv_path)
+    raw = df[_TARGET_COLUMNS[target]].to_numpy(dtype=np.float64)
+    time_ms = df["time_ms"].to_numpy(dtype=np.float64)
+
+    if len(raw) < 2:
+        print(f"  Skipping {take_name}: not enough samples ({len(raw)})")
+        continue
+
+    target_fps = config.rates.there_fps
+    interval_ms = 1000.0 / target_fps
+    uniform_t = np.arange(0.0, time_ms[-1], interval_ms)
+
+    valid = ~np.isnan(raw)
+    if valid.sum() < 2:
+        uniform = np.full_like(uniform_t, np.nan)
+    else:
+        f = interpolate.interp1d(
+            time_ms[valid], raw[valid], kind="linear",
+            bounds_error=False, fill_value="extrapolate",
+        )
+        uniform = f(uniform_t)
+
+    np.save(f"data/features/{take_name}_audio.npy", uniform)
+    nan_count = int(np.isnan(uniform).sum())
+    print(f"  {take_name}: {len(raw)} raw → {len(uniform)} uniform at {target_fps} fps, "
+          f"{nan_count} NaNs, range [{uniform.min():.4f}, {uniform.max():.4f}]")

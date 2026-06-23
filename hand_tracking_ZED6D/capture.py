@@ -13,7 +13,7 @@ import pyzed.sl as sl
 
 
 def _initialize_name_dict():
-    name_dict = {'Frame': []}
+    name_dict = {'Frame': [], 'Timestamp_ns': []}
     for hand in ['left', 'right']:
         for i in range(21):
             for axis in ['X', 'Y', 'Z']:
@@ -115,6 +115,8 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
         if err != sl.ERROR_CODE.SUCCESS:
             return {"idx": idx, "success": False}
 
+        timestamp_ns = active_cam.zed.get_timestamp(sl.TIME_REFERENCE.IMAGE).get_nanoseconds()
+
         active_cam.get_image()
 
         img = active_cam.img.copy()
@@ -149,6 +151,7 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
             'right_data': data_right,
             'mp_left_detected': mp_left,
             'mp_right_detected': mp_right,
+            'timestamp_ns': timestamp_ns,
         }
         fps_value = detectors[idx].get_fps() if (not show_windows and print_fps) else None
         return {"idx": idx, "success": True, "entry": entry, "fps": fps_value}
@@ -157,6 +160,8 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
         err = active_cam.zed.grab(active_cam.runtime_parameters)
         if err != sl.ERROR_CODE.SUCCESS:
             return {"idx": idx, "success": False}
+
+        timestamp_ns = active_cam.zed.get_timestamp(sl.TIME_REFERENCE.IMAGE).get_nanoseconds()
 
         active_cam.get_image()
 
@@ -184,6 +189,7 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
             'right_data': result["right_data"],
             'mp_left_detected': result["mp_left_detected"],
             'mp_right_detected': result["mp_right_detected"],
+            'timestamp_ns': timestamp_ns,
         }
         fps_value = detectors[idx].get_fps() if (not show_windows and print_fps) else None
         return {"idx": idx, "success": True, "entry": entry, "fps": fps_value}
@@ -214,6 +220,8 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
                     if not result.get("success"):
                         continue
                     any_success = True
+                    if result.get("skip"):
+                        continue
                     entry = result["entry"]
                     per_cam[idx] = entry
 
@@ -240,6 +248,7 @@ def capture_to_csv(filename=None, output_csv=None, window_title='Image',
 
             if num_cams == 1:
                 entry = per_cam[0]
+                row['Timestamp_ns'] = entry.get('timestamp_ns', np.nan) if entry is not None else np.nan
                 dl = entry['left_data'] if (entry is not None) else None
                 dr = entry['right_data'] if (entry is not None) else None
 
