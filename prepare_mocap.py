@@ -1,8 +1,9 @@
 import os
+import shutil
 
 import numpy as np
 
-from mocap_tools import Take, clean_mocap_csv, convert_tak_to_csv
+from mocap_tools import Take, clean_mocap_csv
 from config import config
 
 
@@ -12,17 +13,21 @@ TARGETS = ["pitch", "volume"]
 def process_target(target):
     take_name = config.get_take_name(target)
 
-    raw_csv = f"data/features/mocap/OPTITRACK_{take_name}_raw.csv"
-    clean_csv = f"data/features/mocap/OPTITRACK_{take_name}_cleaned.csv"
-    tak_path = f"data/recordings/{take_name}_solved.tak"
+    solved_src = f"data/features/{take_name}_solved.csv"
+    solved_dst = f"data/features/mocap/{take_name}_solved.csv"
+    clean_csv = f"data/features/mocap/{take_name}_cleaned.csv"
 
     print("\n")
-    if not os.path.exists(raw_csv):
-        if not os.path.exists(tak_path):
-            print(f"  Skipping {target}: {tak_path} not found")
+    if not os.path.exists(clean_csv):
+        if os.path.exists(solved_dst):
+            solved_csv = solved_dst
+        elif os.path.exists(solved_src):
+            print(f"  Moving {solved_src} -> {solved_dst} ...")
+            shutil.move(solved_src, solved_dst)
+            solved_csv = solved_dst
+        else:
+            print(f"  Skipping {target}: solved CSV not found")
             return
-        print(f"  Converting {tak_path} ...")
-        convert_tak_to_csv(take_name)
 
     print(f"  Cleaning {take_name} ...")
     clean_mocap_csv(take_name, target, config)
@@ -68,25 +73,33 @@ def process_target(target):
 
     hand = downsample(entity_markers_data(take.markers, markerset_label))
     if hand is not None:
-        np.save(f"data/features/mocap/TRAIN_{take_name}_hands.npy", hand)
+        np.save(f"data/features/{take_name}_hand_mocap.npy", hand)
         print(f"    Hand mocap: {hand.shape}")
 
-    def mean_position(body):
-        if body is None:
-            return None
-        valid = [p for p in body.positions if p is not None]
-        if not valid:
-            return None
-        return np.mean(valid, axis=0)
+    def rigid_body_position(label):
+        body = take.rigid_bodies.get(label)
+        if body is not None:
+            valid = [p for p in body.positions if p is not None]
+            if valid:
+                return np.mean(valid, axis=0)
+        markers = [m for m in take.markers if m.startswith(label)]
+        if markers:
+            all_pos = []
+            for m in markers:
+                for p in take.markers[m].positions:
+                    if p is not None:
+                        all_pos.append(p)
+            if all_pos:
+                return np.mean(all_pos, axis=0)
+        return None
 
-    rigids_path = f"data/features/mocap/TRAIN_{take_name}_rigids.csv"
+    rigids_path = f"data/features/{take_name}_rigids.csv"
     with open(rigids_path, "w") as f:
         f.write("name,x,y,z\n")
         for label, name in [(antenna_label, "antenna"),
                             (camera_label, "camera"),
                             (webcam_label, "webcam")]:
-            body = take.rigid_bodies.get(label)
-            pos = mean_position(body)
+            pos = rigid_body_position(label)
             if pos is not None:
                 f.write(f"{name},{pos[0]:.6f},{pos[1]:.6f},{pos[2]:.6f}\n")
                 print(f"    {name}: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})")

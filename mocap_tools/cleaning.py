@@ -28,16 +28,16 @@ def create_outlier_mask(df, columns, deviation_threshold=0.3):
 
 
 def clean_mocap_csv(take_name, target, config):
-    raw_path = f"data/features/mocap/OPTITRACK_{take_name}_raw.csv"
-    clean_path = f"data/features/mocap/OPTITRACK_{take_name}_cleaned.csv"
+    raw_path = f"data/features/mocap/{take_name}_solved.csv"
+    clean_path = f"data/features/mocap/{take_name}_cleaned.csv"
 
     with open(raw_path, "r") as f:
         reader = csv.reader(f)
-        header_rows = [next(reader) for _ in range(8)]
+        header_rows = [next(reader) for _ in range(7)]
 
     raw_types = header_rows[2]
     raw_names = header_rows[3]
-    raw_cols  = header_rows[7]
+    raw_cols  = header_rows[6]
 
     # Determine which entities to keep based on target
     entities_to_keep = set()
@@ -83,7 +83,7 @@ def clean_mocap_csv(take_name, target, config):
     kept_columns = [c for c, k in zip(new_columns_all, keep_mask) if k]
     print(f"  Raw columns: {len(new_columns_all)} -> Kept: {len(kept_columns)}")
 
-    df = pd.read_csv(raw_path, skiprows=8, names=new_columns_all, on_bad_lines='skip')
+    df = pd.read_csv(raw_path, skiprows=7, names=new_columns_all, on_bad_lines='skip')
     df = df.loc[:, keep_mask]
     df = df.reset_index(drop=True)
     df['Frame'] = range(len(df))
