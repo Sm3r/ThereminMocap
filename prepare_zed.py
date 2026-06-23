@@ -39,6 +39,16 @@ for target in ("pitch", "volume"):
 
     df = pd.read_csv(csv_path)
 
+    # If mp was runned using maxHands = 2 i keep only relevant hand -> other must be allucination given our camera configuration
+    other_hand = "left" if target_hand == "right" else "right"
+    both = (df[f"{target_hand}_2d_detected"] == 1) & (df[f"{other_hand}_2d_detected"] == 1)
+    if both.any():
+        other_cols = [c for c in df.columns if c.startswith(f"{other_hand}_")]
+        df.loc[both, other_cols] = np.nan
+        n_both = both.sum()
+        print(f"  Nullified {other_hand} data on {n_both}/{len(df)} dual-detect frames"
+              f" ({n_both/len(df)*100:.1f}%)")
+
     print(f"\n  === Detection summary: {take_name} ({target_hand} hand) ===")
     if fix_hand_label:
         df = fix_hand_labels(df, target_hand=target_hand)

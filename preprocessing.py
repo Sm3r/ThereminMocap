@@ -120,7 +120,7 @@ def _create_spike_mask(df: pd.DataFrame, columns: list[str],
         mask[col] = (roll_mad > 0) & (dev / roll_mad > threshold)
     return mask
 
-def remove_spikes(df: pd.DataFrame, window: int = 128, threshold: float = 8.0, iterations: int = 2) -> pd.DataFrame:
+def remove_spikes(df: pd.DataFrame, window: int = 128, threshold: float = 5.0, iterations: int = 2) -> pd.DataFrame:
     df = df.copy()
     hand_cols = []
 
@@ -134,10 +134,10 @@ def remove_spikes(df: pd.DataFrame, window: int = 128, threshold: float = 8.0, i
     for _ in range(iterations):
         if _ == 0:
             window = window
-            threshold = 8.0
+            threshold = 5.0
         else:
             window = window // 2
-            threshold = 8.0
+            threshold = 5.0
         mask = _create_spike_mask(df, hand_cols, window, threshold)
         for col in hand_cols:
             n_valid = df[col].notna().sum()
