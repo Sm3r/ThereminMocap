@@ -28,7 +28,7 @@ def _bone_prefixes(target):
 def plot_markers(target):
     hand = HAND_MAP[target]
     take_name = config.get_take_name(target)
-    csv_path = f"data/features/mocap/OPTITRACK_{take_name}_cleaned.csv"
+    csv_path = f"data/features/mocap/{take_name}_cleaned.csv"
 
     if not os.path.exists(csv_path):
         print(f"  Skipping {target}: {csv_path} not found")

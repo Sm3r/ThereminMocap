@@ -13,7 +13,7 @@ HAND_MAP = {"pitch": "right", "volume": "left"}
 def plot_markers(target):
     hand = HAND_MAP[target]
     take_name = config.get_take_name(target)
-    npy_path = f"data/features/mocap/TRAIN_{take_name}_hands.npy"
+    npy_path = f"data/features/{take_name}_hand_mocap.npy"
 
     if not os.path.exists(npy_path):
         print(f"  Skipping {target}: {npy_path} not found")
