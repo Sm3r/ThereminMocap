@@ -51,16 +51,23 @@ class HandNet(nn.Module):
 
 if __name__ == "__main__":
     model = HandNet()
-    print(f"Parameters number: {sum(p.numel() for p in model.parameters())}")
+    model.eval()
+
     x = torch.randn(4, 16, 63)
-    y_hat = model(x)
-    print(y_hat.shape)
 
-    import time
-
-    start = time.time()
-    for _ in range(100):
+    with torch.no_grad():
         y_hat = model(x)
-    end = time.time()
+        print(y_hat.shape)
 
-    print(f"100 iters: {end - start:.2f} seconds")
+        import time
+
+        start = time.time()
+        for _ in range(100):
+            y_hat = model(x)
+        end = time.time()
+
+    elapsed = end - start
+    avg_ms = elapsed * 1000.0 / 100
+
+    print(f"100 iters: {elapsed:.2f} seconds")
+    print(f"Average forward time: {avg_ms:.3f} ms")

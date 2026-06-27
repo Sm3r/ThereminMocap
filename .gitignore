@@ -21,3 +21,16 @@ out/test/
 
 # Training outputs
 wandb/
+
+
+runs_multi_cv_dual
+
+runs_mocap_multi_cv_dual
+
+runs_aggregated_pitch_volume_cv
+
+free_chunk_predictions_aggregated
+
+visualize
+
+data/features/mocap/free_pitch.csv
