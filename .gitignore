@@ -34,3 +34,5 @@ free_chunk_predictions_aggregated
 visualize
 
 data/features/mocap/free_pitch.csv
+
+runs_mocap_multi_cv_dual2/
