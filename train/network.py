@@ -38,13 +38,16 @@ class HandNet(nn.Module):
             nn.Linear(hidden_dim // 2, 1),
         )
 
-    def forward(self, x):
+    def forward(self, x, state=None, return_state=False):
         z = self.coord_encoder(x)
 
-        lstm_out, _ = self.lstm(z)
+        lstm_out, state = self.lstm(z, state)
         last = lstm_out[:, -1, :]
 
         y_hat = self.regressor(last).squeeze(-1)
+
+        if return_state:
+            return y_hat, state
 
         return y_hat
 
