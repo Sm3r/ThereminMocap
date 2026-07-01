@@ -6,9 +6,9 @@ class HandNet(nn.Module):
     def __init__(
         self,
         input_dim: int = 63,
-        coord_mlp_dim: int = 256,
-        hidden_dim: int = 128,
-        num_layers: int = 3,
+        coord_mlp_dim: int = 128,
+        hidden_dim: int = 48,
+        num_layers: int = 1,
         dropout: float = 0.2,
     ):
         super().__init__()
@@ -50,10 +50,15 @@ class HandNet(nn.Module):
 
 
 if __name__ == "__main__":
-    model = HandNet()
+
+    ITERS = 1000
+    INPUT_DIM = 18
+
+    model = HandNet(input_dim=INPUT_DIM)
+    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     model.eval()
 
-    x = torch.randn(4, 16, 63)
+    x = torch.randn(1, 1, INPUT_DIM)
 
     with torch.no_grad():
         y_hat = model(x)
@@ -62,12 +67,12 @@ if __name__ == "__main__":
         import time
 
         start = time.time()
-        for _ in range(100):
+        for _ in range(ITERS):
             y_hat = model(x)
         end = time.time()
 
     elapsed = end - start
-    avg_ms = elapsed * 1000.0 / 100
+    avg_ms = elapsed * 1000.0 / ITERS
 
-    print(f"100 iters: {elapsed:.2f} seconds")
+    print(f"{ITERS} iters: {elapsed:.2f} seconds")
     print(f"Average forward time: {avg_ms:.3f} ms")
