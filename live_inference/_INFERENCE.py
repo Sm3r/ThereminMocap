@@ -3,7 +3,6 @@ import os
 import sys
 import threading
 import time
-from collections import deque
 
 import cv2
 import numpy as np
@@ -30,18 +29,19 @@ SC_IP = "127.0.0.1"
 SC_PORT = 57120
 
 FEATURE_DIM = 63
-
+MAX_MISSED_FRAMES = int(os.getenv("MAX_MISSED_FRAMES", "8"))
 
 PITCH_CKPT = os.getenv(
     "PITCH_CHECKPOINT",
-    os.path.join(PROJECT_ROOT, "train", "checkpoints", "pitch_model.pt"),
+    os.path.join(PROJECT_ROOT, "train", "checkpoints", "PITCH5_best_model.pt"),
 )
 
 VOLUME_CKPT = os.getenv(
     "VOLUME_CHECKPOINT",
-    os.path.join(PROJECT_ROOT, "train", "checkpoints", "volume_model.pt"),
+    os.path.join(PROJECT_ROOT, "train", "checkpoints", "VOLUME5_best_model.pt"),
 )
 
+LSTMState = tuple[torch.Tensor, torch.Tensor] | None
 
 def _torch_load_checkpoint(checkpoint_path: str, device: torch.device) -> dict:
     try:
@@ -223,37 +223,50 @@ def _detect_one_frame_triangulation(
     return right_feat, left_feat, det_img
 
 
-def _run_model_on_sequence(
+def _detach_lstm_state(state: LSTMState) -> LSTMState:
+    if state is None:
+        return None
+    h, c = state
+    return h.detach(), c.detach()
+
+
+def _run_model_on_frame_streaming(
     bundle: dict,
-    seq_np: np.ndarray,
+    frame_np: np.ndarray,
+    state: LSTMState,
     device: torch.device,
-) -> float:
-    if seq_np.ndim != 2 or seq_np.shape[1] != FEATURE_DIM:
-        raise RuntimeError(f"Expected sequence shape [seq_len, {FEATURE_DIM}], got {seq_np.shape}")
+) -> tuple[float, LSTMState]:
+    if frame_np.ndim != 1 or frame_np.shape[0] != FEATURE_DIM:
+        raise RuntimeError(
+            f"Expected frame shape [{FEATURE_DIM}], got {frame_np.shape}"
+        )
 
-    seq = torch.tensor(seq_np, dtype=torch.float32, device=device).unsqueeze(0)
+    x = torch.as_tensor(frame_np, dtype=torch.float32, device=device).reshape(
+        1, 1, FEATURE_DIM
+    )
 
-    # This mirrors NpySequenceDataset.__getitem__ in the training script:
-    # x = (x - x_mean) / x_std
-    seq = (seq - bundle["x_mean"]) / bundle["x_std"]
+    x = (x - bundle["x_mean"]) / bundle["x_std"]
 
-    with torch.no_grad():
-        value = bundle["model"](seq).reshape(-1)[0].item()
+    model = bundle["model"]
 
-    return float(value)
+    with torch.inference_mode():
+        z = model.coord_encoder(x)
+        lstm_out, next_state = model.lstm(z, state)
+        last = lstm_out[:, -1, :]
+        value = model.regressor(last).reshape(-1)[0].item()
+
+    return float(value), _detach_lstm_state(next_state)
 
 
 def _send_prediction(osc_client: SimpleUDPClient, osc_path: str, value: float) -> None:
-    # The training script does not normalize y. This assumes your trained target is
-    # already the same control range expected here. The clamp is only a runtime
-    # safety guard before mapping to SuperCollider.
+
     value = max(0.0, min(1.0, value))
 
     if osc_path == "/pitch":
-        freq = 130.0 * (2093.0 / 130.0) ** value * 3.0
+        freq = 130.0 * (2093.0 / 130.0) ** value * 3.0 # CHECK!!!!!
         osc_client.send_message(osc_path, [freq])
     else:
-        amp = value * 3.0
+        amp = value * 2.0
         osc_client.send_message(osc_path, [amp])
 
 
@@ -269,8 +282,12 @@ def _inference_thread(
     detect_fn=_detect_one_frame,
 ):
     seq_len = int(bundle["seq_len"])
-    buf = deque(maxlen=seq_len)
-    last_feat = None
+    min_frames_before_output = max(1, seq_len)
+
+    state: LSTMState = None
+    frames_seen = 0
+    missed_frames = 0
+    last_feat: np.ndarray | None = None
 
     extract = (lambda r, l: r) if hand_label == "right" else (lambda r, l: l)
 
@@ -283,16 +300,33 @@ def _inference_thread(
         hand_feat = extract(right_feat, left_feat)
 
         if hand_feat is not None:
-            last_feat = hand_feat
+            last_feat = hand_feat.copy()
+            missed_frames = 0
+        else:
+            missed_frames += 1
 
-        # Online fallback: if detection drops for a frame, reuse the last valid
-        # feature vector instead of sending NaNs into the model.
-        if last_feat is not None:
-            buf.append(last_feat.copy())
+            if last_feat is None or missed_frames > MAX_MISSED_FRAMES:
+                state = None
+                frames_seen = 0
+                last_feat = None
+                if det_img is not None:
+                    cv2.imshow(window_name, det_img)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    running.clear()
+                    break
+                continue
 
-        if len(buf) == seq_len:
-            seq_np = np.stack(list(buf), axis=0).astype(np.float32)
-            value = _run_model_on_sequence(bundle, seq_np, device)
+            hand_feat = last_feat.copy()
+
+        value, state = _run_model_on_frame_streaming(
+            bundle=bundle,
+            frame_np=hand_feat,
+            state=state,
+            device=device,
+        )
+        frames_seen += 1
+
+        if frames_seen >= min_frames_before_output:
             _send_prediction(osc_client, osc_path, value)
 
         if det_img is not None:
@@ -309,7 +343,7 @@ def _auto_detect_hands(cams, detectors, detect_fn, serials):
     print()
     print("=== AUTO-DETECT HANDS ===")
     print("Show one hand in each camera. Detection runs until both hands are found.")
-    print("(Press Ctrl+C to abort)")
+    print("Press Ctrl+C to abort.")
     print()
 
     while True:
@@ -432,6 +466,8 @@ def main():
         right_detectors = None
         detect_fn = _detect_one_frame
 
+    threads = []
+
     try:
         pitch_cam_idx, volume_cam_idx = _auto_detect_hands(
             cams=cams,
@@ -442,8 +478,6 @@ def main():
 
         running = threading.Event()
         running.set()
-
-        threads = []
 
         if use_triangulation:
             pitch_detect_fn = lambda cam, det: _detect_one_frame_triangulation(
@@ -482,8 +516,6 @@ def main():
             ),
             daemon=True,
         )
-        pitch_thread.start()
-        threads.append(pitch_thread)
 
         volume_thread = threading.Thread(
             target=_inference_thread,
@@ -500,8 +532,10 @@ def main():
             ),
             daemon=True,
         )
+
+        pitch_thread.start()
         volume_thread.start()
-        threads.append(volume_thread)
+        threads.extend([pitch_thread, volume_thread])
 
         print()
         print("Real-time prediction running. Press Q in either window or Ctrl+C to stop.")
@@ -520,11 +554,8 @@ def main():
         except NameError:
             pass
 
-        try:
-            for thread in threads:
-                thread.join(timeout=2)
-        except NameError:
-            pass
+        for thread in threads:
+            thread.join(timeout=2)
 
         for cam in cams:
             cam.zed.close()
